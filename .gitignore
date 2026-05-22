@@ -1,0 +1,44 @@
+# 编译中间文件
+*.o
+*.obj
+*.elf
+*.bin
+*.hex
+*.map
+*.1st
+*.d
+*.axf
+*.iex
+*.dep
+*.dbg
+*.crf
+*.htm
+*.lnp
+*.sct
+*.log
+*.params
+*.json
+*.map.old
+*.map.view
+*.s19
+*.objlist
+
+# IDE specific files
+*.uvgui.*
+*.uvguix.*
+*.uvoptx
+
+# IDE 文件夹
+USER/bulid/
+USER/bulid/Target 1/
+USER/DebugConfig/
+OUTPUT/*
+
+# vscode文件
+USER/.cmsis/
+USER/.eide/
+USER/.vscode/
+USER/.pack/
+
+*.usr.ctx.json
+RTE_Components.h
