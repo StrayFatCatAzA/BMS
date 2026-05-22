@@ -222,7 +222,7 @@ static uint8_t a_iic_recv_byte(void)
  *   SDA: PB9 开漏输出
  * @return 初始化是否成功 0 - 成功 1 - 失败
  */
-uint8_t iic_soft_init(void)
+iic_state iic_soft_init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
@@ -254,7 +254,7 @@ uint8_t iic_soft_init(void)
  * @param  len 数据长度
  * @return 写入是否成功 0 - 成功 1 - 失败
  */
-uint8_t iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t len)
+iic_state iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
@@ -291,7 +291,7 @@ uint8_t iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t len)
  * @param  len 接收数据的长度
  * @return 读取是否成功 0 - 成功 1 - 失败
  */
-uint8_t iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
+iic_state iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
@@ -333,7 +333,7 @@ uint8_t iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
  * @param len 写入数据长度
  * @return 写入是否成功 0 - 成功 1 - 失败
  */
-uint8_t iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *data, uint16_t len)
+iic_state iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
@@ -378,7 +378,7 @@ uint8_t iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *da
  * @param len 接收数据的长度
  * @return 读取是否成功 0 - 成功 1 - 失败
  */
-uint8_t iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, uint16_t len)
+iic_state iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
