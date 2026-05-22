@@ -67,7 +67,7 @@ uint8_t uart1_init(void)
  * @param  byte 字节指针
  * @return 1 失败 0 成功
  */
-uint8_t uart1_send_byte(uint8_t *byte)
+uint8_t uart1_send_byte(const uint8_t byte)
 {
     if (byte == NULL)
     {
@@ -75,7 +75,7 @@ uint8_t uart1_send_byte(uint8_t *byte)
     }
 
     uartENTER_CRITICAL();
-    if (buffer_write_byte(&tx_buffer_handle, *byte) != 1)
+    if (buffer_write_byte(&tx_buffer_handle, (uint8_t)byte) != 1)
     {
         uartEXIT_CRITICAL();
         return 1;
@@ -93,14 +93,14 @@ uint8_t uart1_send_byte(uint8_t *byte)
  * @param  len 发送长度
  * @return 1 失败 0 成功
  */
-uint8_t uart1_send_bytes(uint8_t *bytes, uint16_t len)
+uint8_t uart1_send_bytes(const uint8_t *bytes, uint16_t len)
 {
     if (bytes == NULL)
     {
         return 1;
     }
     uartENTER_CRITICAL();
-    if (buffer_write_data(&tx_buffer_handle, bytes, len) == 0)
+    if (buffer_write_data(&tx_buffer_handle, (uint8_t *)bytes, len) == 0)
     {
         uartEXIT_CRITICAL();
         return 1;
@@ -171,7 +171,7 @@ void uart1_set_tx_callback(uart1_tx_callback_t cb)
  */
 int fputc(int ch, FILE *f)
 {
-    uart1_send_byte((uint8_t *)&ch);
+    uart1_send_byte((uint8_t)ch);
     return ch;
 }
 
