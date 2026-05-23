@@ -1,6 +1,7 @@
 ﻿#include "bsp_iic.h"
 
 #include "stm32f1xx_hal.h"
+#include "FreeRTOS.h"
 
 /* ========================== 引脚配置 ========================== */
 
@@ -29,6 +30,29 @@ static uint8_t a_iic_wait_ack(void);
 
 static void a_iic_send_byte(uint8_t byte);
 static uint8_t a_iic_recv_byte(void);
+
+static void iicENTER_CRITICAL(void);
+static void iicEXIT_CRITICAL(void);
+
+/* ========================== 临界区函数接口 ========================== */
+
+/**
+ * @description: iic进入临界区
+ * @return {*}
+ */
+static void iicENTER_CRITICAL(void)
+{
+    portENTER_CRITICAL();
+}
+
+/**
+ * @description: iic退出临界区
+ * @return {*}
+ */
+static void iicEXIT_CRITICAL(void)
+{
+    portEXIT_CRITICAL();
+}
 
 /* ========================== 延时函数 ========================== */
 

@@ -4,7 +4,7 @@
 
 #include "usart.h"
 #include "ring_buffer.h"
-#include "freertos.h"
+#include "FreeRTOS.h"
 
 
 /* 发送 DMA设置 */
@@ -35,12 +35,12 @@ static void uart1_rx_push_to_buffer(uint16_t len);
 /* 临界区接口 */
 static void uartENTER_CRITICAL()
 {
-    // portENTER_CRITICAL();
+    portENTER_CRITICAL();
 }
 
 static void uartEXIT_CRITICAL()
 {
-    // portEXIT_CRITICAL();
+    portEXIT_CRITICAL();
 }
 
 /**
