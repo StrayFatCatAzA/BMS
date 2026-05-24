@@ -35,7 +35,9 @@ extern "C" {
 
 #include "bsp_iic.h"
 #include "bsp_uart1.h"
+
 #include "driver_bq76940.h"
+#include "driver_led.h"
 
 /* USER CODE END Includes */
 

@@ -96,6 +96,10 @@ int main(void)
   MX_USART2_UART_Init();
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
+  drv_led_init();
+
+  drv_led_set_state(DRV_LED_ON);
+
   if (uart1_init() != UART_STATE_OK)
   {
     uart1_printf("uart init failed\r\n");

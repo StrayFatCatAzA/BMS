@@ -749,6 +749,11 @@
               <FileType>1</FileType>
               <FilePath>..\User\BSP\Src\bsp_uart1.c</FilePath>
             </File>
+            <File>
+              <FileName>bsp_led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\BSP\Src\bsp_led.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -758,6 +763,11 @@
               <FileName>driver_bq76940.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\Driver\Src\driver_bq76940.c</FilePath>
+            </File>
+            <File>
+              <FileName>driver_led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Driver\Src\driver_led.c</FilePath>
             </File>
           </Files>
         </Group>
