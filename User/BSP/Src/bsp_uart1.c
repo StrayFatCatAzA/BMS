@@ -47,7 +47,7 @@ static void uartEXIT_CRITICAL()
  * @description: 串口初始化函数
  * @return {*}
  */
-uint8_t uart1_init(void)
+uart_state uart1_init(void)
 {
     /* 串口初始化 */
     MX_USART1_UART_Init();
@@ -59,7 +59,7 @@ uint8_t uart1_init(void)
     /* DMA+IDLE 启动 */
     uart1_rx_restart();
 
-    return 0;
+    return UART_STATE_OK;
 }
 
 /**
@@ -67,24 +67,21 @@ uint8_t uart1_init(void)
  * @param  byte 字节指针
  * @return 1 失败 0 成功
  */
-uint8_t uart1_send_byte(const uint8_t byte)
+uart_state uart1_send_byte(const uint8_t byte)
 {
-    if (byte == NULL)
-    {
-        return 1;
-    }
-
     uartENTER_CRITICAL();
+
     if (buffer_write_byte(&tx_buffer_handle, (uint8_t)byte) != 1)
     {
         uartEXIT_CRITICAL();
-        return 1;
+        return UART_STATE_ERR;
     }
 
     uart1_tx_flush();
+
     uartEXIT_CRITICAL();
 
-    return 0;
+    return UART_STATE_OK;
 }
 
 /**
@@ -93,22 +90,23 @@ uint8_t uart1_send_byte(const uint8_t byte)
  * @param  len 发送长度
  * @return 1 失败 0 成功
  */
-uint8_t uart1_send_bytes(const uint8_t *bytes, uint16_t len)
+uart_state uart1_send_bytes(const uint8_t *bytes, uint16_t len)
 {
-    if (bytes == NULL)
+    if (bytes == NULL || len == 0)
     {
-        return 1;
+        return UART_STATE_ERR;
     }
     uartENTER_CRITICAL();
     if (buffer_write_data(&tx_buffer_handle, (uint8_t *)bytes, len) == 0)
     {
         uartEXIT_CRITICAL();
-        return 1;
+        return UART_STATE_ERR;
     }
 
     uart1_tx_flush();
     uartEXIT_CRITICAL();
-    return 0;
+
+    return UART_STATE_OK;
 }
 
 /**
@@ -116,16 +114,20 @@ uint8_t uart1_send_bytes(const uint8_t *bytes, uint16_t len)
  * @param byte 接收字节指针
  * @return 1 失败 0 成功
  */
-uint8_t uart1_receive_byte(uint8_t *byte)
+uart_state uart1_receive_byte(uint8_t *byte)
 {
     if (byte == NULL)
     {
-        return 1;
+        return UART_STATE_ERR;
     }
+
     uartENTER_CRITICAL();
+
     uint8_t res = buffer_read_byte(&rx_buffer_handle, byte);
+
     uartEXIT_CRITICAL();
-    return res;
+
+    return (res == 1 ? UART_STATE_OK : UART_STATE_ERR);
 }
 
 /**
@@ -134,16 +136,20 @@ uint8_t uart1_receive_byte(uint8_t *byte)
  * @param len 接收长度
  * @return 1 失败 0 成功
  */
-uint8_t uart1_receive_bytes(uint8_t *bytes, uint16_t len)
+uart_state uart1_receive_bytes(uint8_t *bytes, uint16_t len)
 {
-    if (bytes == NULL)
+    if (bytes == NULL || len == 0)
     {
-        return 1;
+        return UART_STATE_ERR;
     }
+    
     uartENTER_CRITICAL();
+
     uint32_t r_len = buffer_read_data(&rx_buffer_handle, bytes, len);
+
     uartEXIT_CRITICAL();
-    return (r_len > 0 ? 0 : 1);
+
+    return (r_len > 0 ? UART_STATE_OK : UART_STATE_ERR);
 }
 
 /**
