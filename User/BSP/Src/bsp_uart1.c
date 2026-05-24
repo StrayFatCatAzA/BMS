@@ -1,6 +1,7 @@
 #include "bsp_uart1.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "usart.h"
 #include "ring_buffer.h"
@@ -67,11 +68,11 @@ uart_state uart1_init(void)
  * @param  byte 字节指针
  * @return 1 失败 0 成功
  */
-uart_state uart1_send_byte(const uint8_t byte)
+uart_state uart1_send_byte(uint8_t byte)
 {
     uartENTER_CRITICAL();
 
-    if (buffer_write_byte(&tx_buffer_handle, (uint8_t)byte) != 1)
+    if (buffer_write_byte(&tx_buffer_handle, byte) != 1)
     {
         uartEXIT_CRITICAL();
         return UART_STATE_ERR;
@@ -90,14 +91,14 @@ uart_state uart1_send_byte(const uint8_t byte)
  * @param  len 发送长度
  * @return 1 失败 0 成功
  */
-uart_state uart1_send_bytes(const uint8_t *bytes, uint16_t len)
+uart_state uart1_send_bytes(uint8_t *bytes, uint16_t len)
 {
     if (bytes == NULL || len == 0)
     {
         return UART_STATE_ERR;
     }
     uartENTER_CRITICAL();
-    if (buffer_write_data(&tx_buffer_handle, (uint8_t *)bytes, len) == 0)
+    if (buffer_write_data(&tx_buffer_handle, bytes, len) == 0)
     {
         uartEXIT_CRITICAL();
         return UART_STATE_ERR;
@@ -173,12 +174,22 @@ void uart1_set_tx_callback(uart1_tx_callback_t cb)
 }
 
 /**
- * @description: printf重定向为 USART1 （需要启动 MicroLib）
+ * @description: uart1 串口打印函数
+ * @param {char*} format
+ * @return {*}
  */
-int fputc(int ch, FILE *f)
+void uart1_printf(const char* format, ...)
 {
-    uart1_send_byte((uint8_t)ch);
-    return ch;
+    char buf[256];
+    va_list args;
+    va_start(args, format);
+    int len = vsnprintf(buf, sizeof(buf), format, args);
+    va_end(args);
+
+    if (len > 0)
+    {
+        uart1_send_bytes((uint8_t *)buf, (len < (int)sizeof(buf) ? len : (int)sizeof(buf) - 1));
+    }
 }
 
 /**

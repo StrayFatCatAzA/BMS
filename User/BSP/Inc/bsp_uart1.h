@@ -18,9 +18,10 @@ typedef void (*uart1_tx_callback_t)(void);
 void uart1_set_tx_callback(uart1_tx_callback_t cb);
 
 uart_state uart1_init(void);
-uart_state uart1_send_byte(const uint8_t byte);
-uart_state uart1_send_bytes(const uint8_t *bytes, uint16_t len);
+uart_state uart1_send_byte(uint8_t byte);
+uart_state uart1_send_bytes(uint8_t *bytes, uint16_t len);
 uart_state uart1_receive_byte(uint8_t *byte);
 uart_state uart1_receive_bytes(uint8_t *bytes, uint16_t len);
+void uart1_printf(const char* format, ...);
 
 #endif
