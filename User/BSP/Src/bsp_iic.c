@@ -285,12 +285,16 @@ iic_state iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t le
         return IIC_ERR;
     }
 
+    iicENTER_CRITICAL();
+
     a_iic_start();
 
     a_iic_send_byte(dev_addr << 1);
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
 
@@ -300,11 +304,14 @@ iic_state iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t le
         if (a_iic_wait_ack())
         {
             a_iic_stop();
+            iicEXIT_CRITICAL();
+
             return IIC_ERR;
         }
     }
 
     a_iic_stop();
+    iicEXIT_CRITICAL();
     return IIC_OK;
 }
 
@@ -322,12 +329,16 @@ iic_state iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
         return IIC_ERR;
     }
 
+    iicENTER_CRITICAL();
+
     a_iic_start();
 
     a_iic_send_byte((dev_addr << 1) | 0x01);
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
 
@@ -346,6 +357,8 @@ iic_state iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
     }
 
     a_iic_stop();
+    iicEXIT_CRITICAL();
+
     return IIC_OK;
 }
 
@@ -364,12 +377,16 @@ iic_state iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *
         return IIC_ERR;
     }
 
+    iicENTER_CRITICAL();
+
     a_iic_start();
 
     a_iic_send_byte(dev_addr << 1);
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
 
@@ -377,6 +394,8 @@ iic_state iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
 
@@ -386,11 +405,15 @@ iic_state iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *
         if (a_iic_wait_ack())
         {
             a_iic_stop();
+            iicEXIT_CRITICAL();
+
             return IIC_ERR;
         }
     }
 
     a_iic_stop();
+    iicEXIT_CRITICAL();
+
     return IIC_OK;
 }
 
@@ -410,17 +433,22 @@ iic_state iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, u
     }
 
     /* 第一阶段: 写入寄存器地址 */
+    iicENTER_CRITICAL();
     a_iic_start();
     a_iic_send_byte(dev_addr << 1);
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
     a_iic_send_byte(reg);
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
 
@@ -430,6 +458,8 @@ iic_state iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, u
     if (a_iic_wait_ack())
     {
         a_iic_stop();
+        iicEXIT_CRITICAL();
+
         return IIC_ERR;
     }
 
@@ -448,5 +478,7 @@ iic_state iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, u
     }
 
     a_iic_stop();
+    iicEXIT_CRITICAL();
+    
     return IIC_OK;
 }
