@@ -31,8 +31,12 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "bsp_uart1.h"
 #include <stdio.h>
+
+
+#include "bsp_uart1.h"
+#include "driver_bq76940.h"
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
