@@ -6,6 +6,7 @@
 #include "stm32f1xx_hal.h"
 
 #include "bsp_iic.h"
+#include "bsp_uart1.h"
 
 #include "driver_bq76940_reg.h"
 
@@ -15,6 +16,7 @@
 #define BQ76940_IIC_SCL_PORT GPIOB
 #define BQ76940_IIC_SDA_PIN GPIO_PIN_9
 #define BQ76940_IIC_SDA_PORT GPIOB
+
 #define BQ76940_WAKE_PIN GPIO_PIN_8
 #define BQ76940_WAKE_PORT GPIOA
 
@@ -22,7 +24,8 @@
 
 #define BQ76940_DEVICE_ADDR 0x08
 
-#define LOG_E printf
+#define LOG uart1_printf
+#define LOG_E uart1_printf
 
 /* ================================ IIC 接口函数声明 ================================ */
 
@@ -121,7 +124,7 @@ static bq76940_state bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte)
     send_buf[0] = byte;
     send_buf[1] = crc;
 
-    if (bq76940_interface_write_byte(BQ76940_DEVICE_ADDR, reg_addr, send_buf, 2) != 1)
+    if (bq76940_interface_write_byte(BQ76940_DEVICE_ADDR, reg_addr, send_buf, 2) != BQ76940_STATE_OK)
     {
         LOG_E("Failed to write I2C data\r\n");
 
@@ -143,7 +146,7 @@ static bq76940_state bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte)
     // uint8_t crc;
     uint8_t recv_data[2] = {0};
 
-    if (bq76940_interface_read_byte(BQ76940_DEVICE_ADDR,reg_addr,recv_data,2) != IIC_OK)
+    if (bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 2) != BQ76940_STATE_OK)
     {
         LOG_E("Failed to read I2C data\r\n");
 
@@ -229,6 +232,7 @@ bq76940_state bq76940_init(void)
     /* 0. GPIO 初始化 */
     bq76940_gpio_init();
 
+
     /* 1. 唤醒芯片 */
     HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_SET);
     HAL_Delay(100);
@@ -236,7 +240,6 @@ bq76940_state bq76940_init(void)
 
     /* 2. 等待芯片启动完成 */
     HAL_Delay(10);
-
 
     return BQ76940_STATE_OK;
 }
@@ -248,5 +251,11 @@ bq76940_state bq76940_init(void)
  */
 void bq76940_test(void)
 {
+    LOG("\r\n========== BQ76940 Static Function Tests ==========\r\n\r\n");
 
+    uint8_t tmp = 0;
+    bq76940_read_byte_with_CRC(0x00,&tmp);
+
+
+    LOG("========== Tests Complete ==========\r\n\r\n");
 }

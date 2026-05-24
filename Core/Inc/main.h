@@ -33,7 +33,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 
-
+#include "bsp_iic.h"
 #include "bsp_uart1.h"
 #include "driver_bq76940.h"
 

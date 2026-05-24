@@ -42,7 +42,7 @@ static void iicEXIT_CRITICAL(void);
  */
 static void iicENTER_CRITICAL(void)
 {
-    portENTER_CRITICAL();
+    // portENTER_CRITICAL();
 }
 
 /**
@@ -51,7 +51,7 @@ static void iicENTER_CRITICAL(void)
  */
 static void iicEXIT_CRITICAL(void)
 {
-    portEXIT_CRITICAL();
+    // portEXIT_CRITICAL();
 }
 
 /* ========================== 延时函数 ========================== */

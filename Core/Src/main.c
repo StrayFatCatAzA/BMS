@@ -98,26 +98,35 @@ int main(void)
   /* USER CODE BEGIN 2 */
   if (uart1_init() != UART_STATE_OK)
   {
-    printf("uart init failed\r\n");
+    uart1_printf("uart init failed\r\n");
   }
-  uint8_t ch[] = "uart init done\r\n";
-  uart1_send_bytes(ch, sizeof(ch));
+
+  uart1_printf("uart init done\r\n");
+  
+  if (iic_soft_init() != IIC_OK)
+  {
+    uart1_printf("iic init failed\r\n");
+  }
+
+  uart1_printf("iic init done\r\n");
 
   if (bq76940_init() != BQ76940_STATE_OK)
   {
-    printf("bq76940 init failed\r\n");
+    uart1_printf("bq76940 init failed\r\n");
   }
 
-  
+  uart1_printf("bq76940 init done\r\n");
+
+  bq76940_test();
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
-  // osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
-  // MX_FREERTOS_Init();
+  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
 
   /* Start scheduler */
-  // osKernelStart();
+  osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
 
