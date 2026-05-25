@@ -121,7 +121,7 @@ int main(void)
 
   bsp_uart1_printf("bq76940 init done\r\n");
 
-  bq76940_test();
+  bq76940_static_test();
 
   /* USER CODE END 2 */
 

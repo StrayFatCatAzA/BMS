@@ -181,6 +181,6 @@ bq76940_state_e bq76940_stop_banlance(uint8_t cell_index);
 
 
 
-void bq76940_test(void);
+void bq76940_static_test(void);
 
 #endif

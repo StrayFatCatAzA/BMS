@@ -30,16 +30,16 @@
 
 /* ================================ IIC 接口函数声明 ================================ */
 
-static bq76940_state_e bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len);
-static bq76940_state_e bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
+static bq76940_state_e s_bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len);
+static bq76940_state_e s_bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
 
 /* ================================ 内部静态函数声明 ================================ */
 
-static void bq76940_gpio_init(void);
-static bq76940_state_e bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte);
-static bq76940_state_e bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte);
-static bq76940_state_e bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword);
-static uint8_t bq76940_crc(uint8_t *data, uint16_t len);
+static void s_bq76940_gpio_init(void);
+static bq76940_state_e s_bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte);
+static bq76940_state_e s_bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte);
+static bq76940_state_e s_bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword);
+static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len);
 
 /* ================================ IIC 接口函数实现 ================================ */
 
@@ -51,7 +51,7 @@ static uint8_t bq76940_crc(uint8_t *data, uint16_t len);
  * @param {uint16_t} len 数据长度
  * @return {*}
  */
-static bq76940_state_e bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
+static bq76940_state_e s_bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
 {
     if (bsp_iic_soft_mem_write_data(dev_addr, reg_addr, data, len) != IIC_OK)
         return BQ76940_STATE_ERR;
@@ -67,7 +67,7 @@ static bq76940_state_e bq76940_interface_write_byte(uint8_t dev_addr, uint8_t re
  * @param {uint16_t} len 要读取数据长度
  * @return {*}
  */
-static bq76940_state_e bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
+static bq76940_state_e s_bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     if (bsp_iic_soft_mem_read_data(dev_addr, reg_addr, data, len) != IIC_OK)
         return BQ76940_STATE_ERR;
@@ -77,8 +77,7 @@ static bq76940_state_e bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg
 
 /* ================================ 内部静态函数实现 ================================ */
 
-
-void bq76940_gpio_init(void)
+void s_bq76940_gpio_init(void)
 {
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -101,7 +100,7 @@ void bq76940_gpio_init(void)
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(BQ76940_WAKE_PORT, &GPIO_InitStruct);
 
-    HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_RESET);    
+    HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_RESET);
 }
 
 /**
@@ -110,7 +109,7 @@ void bq76940_gpio_init(void)
  * @param {uint8_t} byte 写入的字节数据
  * @return {*}
  */
-static bq76940_state_e bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte)
+static bq76940_state_e s_bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte)
 {
     uint8_t crc_buf[3] = {0};
     uint8_t send_buf[2] = {0};
@@ -120,12 +119,12 @@ static bq76940_state_e bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byt
     crc_buf[1] = reg_addr;
     crc_buf[2] = byte;
 
-    crc = bq76940_crc(crc_buf, 3);
+    crc = s_bq76940_crc(crc_buf, 3);
 
     send_buf[0] = byte;
     send_buf[1] = crc;
 
-    if (bq76940_interface_write_byte(BQ76940_DEVICE_ADDR, reg_addr, send_buf, 2) != BQ76940_STATE_OK)
+    if (s_bq76940_interface_write_byte(BQ76940_DEVICE_ADDR, reg_addr, send_buf, 2) != BQ76940_STATE_OK)
     {
         LOG_E("Failed to write I2C data\r\n");
 
@@ -141,28 +140,31 @@ static bq76940_state_e bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byt
  * @param {uint8_t} *byte 读取的字节数据
  * @return {*}
  */
-static bq76940_state_e bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte)
+static bq76940_state_e s_bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte)
 {
-    // uint8_t crc_buf[2] = {0};
-    // uint8_t crc;
+    uint8_t crc_buf[2] = {0};
+    uint8_t crc;
     uint8_t recv_data[2] = {0};
 
-    if (bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 2) != BQ76940_STATE_OK)
+    if (s_bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 2) != BQ76940_STATE_OK)
     {
         LOG_E("Failed to read I2C data\r\n");
 
         return BQ76940_STATE_ERR; // Return an invalid value to indicate failure
     }
     // CRC校验：先构造CRC输入数据（设备地址 + 读位 + 寄存器地址 + 读到的数据）
-    // crc_buf[0] = (BQ76940_DEVICE_ADDR << 1) | 0x01; // Read operation
-    // crc_buf[1] = recv_data[0];                      // Received data
-    // LOG_I("Received byte: 0x%02X, CRC from device: 0x%02X\r\n", recv_data[0], recv_data[1]);
-    // crc = CRC8_Calculate(crc_buf, 2);
-    // if (crc != recv_data[1])
-    // {
-    //     LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[1]);
-    //     // return 0;
-    // }
+    crc_buf[0] = (BQ76940_DEVICE_ADDR << 1) | 0x01; // Read operation
+    crc_buf[1] = recv_data[0];                      // Received data
+    crc = s_bq76940_crc(crc_buf, 2);
+
+    LOG_E("Received byte: 0x%02X, CRC from device: 0x%02X\r\n", recv_data[0], recv_data[1]);
+
+    if (crc != recv_data[1])
+    {
+        LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[1]);
+
+        return BQ76940_STATE_ERR;
+    }
 
     *byte = recv_data[0];
 
@@ -175,23 +177,38 @@ static bq76940_state_e bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byt
  * @param {uint16_t} halfword 读取的半字数据
  * @return {*}
  */
-static bq76940_state_e bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword)
+static bq76940_state_e s_bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword)
 {
-    uint8_t high_byte = 0, low_byte = 0;
+    uint8_t crc_buf[2] = {0};
+    uint8_t crc = 0;
+    uint8_t recv_data[4] = {0};
 
-    if (bq76940_read_byte_with_CRC(reg_addr, &high_byte) != IIC_OK)
+    if (s_bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 4) != BQ76940_STATE_OK)
     {
-        LOG_E("Failed to read high byte\r\n");
-        return BQ76940_STATE_ERR; // Return an invalid value to indicate failure
+        LOG_E("Failed to read I2C data\r\n");
+
+        return BQ76940_STATE_ERR;
     }
 
-    if (bq76940_read_byte_with_CRC(reg_addr + 1, &low_byte) != IIC_OK)
+    /* 第一个字节校验 构造CRC输入数据（设备地址 + 读位 + 读到的数据） */
+    crc_buf[0] = (BQ76940_DEVICE_ADDR << 1) | 0x01;
+    crc_buf[1] = recv_data[0];
+    /* CRC8校验 */
+    crc = s_bq76940_crc(crc_buf, 2);
+    /* 校验结构判断 */
+    if (crc != recv_data[1])
     {
-        LOG_E("Failed to read low byte\r\n");
-        return BQ76940_STATE_ERR; // Return an invalid value to indicate failure
+        LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[1]);
+    }
+    /* 第二个字节校验 */
+    crc_buf[0] = recv_data[2];
+    crc = s_bq76940_crc(crc_buf, 1);
+    if (crc != recv_data[3])
+    {
+        LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[3]);
     }
 
-    *halfword = ((high_byte << 8) | low_byte);
+    *halfword = ((recv_data[0] << 8) | recv_data[2]);
 
     return BQ76940_STATE_OK;
 }
@@ -202,7 +219,7 @@ static bq76940_state_e bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t
  * @param {uint16_t} len 数据长度
  * @return CRC校验值
  */
-static uint8_t bq76940_crc(uint8_t *data, uint16_t len)
+static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len)
 {
     uint8_t crc = 0x00;
     /* CRC 计算 */
@@ -221,7 +238,6 @@ static uint8_t bq76940_crc(uint8_t *data, uint16_t len)
     return crc;
 }
 
-
 /* ================================ BQ76940 公开接口函数 ================================ */
 
 /**
@@ -231,8 +247,7 @@ static uint8_t bq76940_crc(uint8_t *data, uint16_t len)
 bq76940_state_e bq76940_init(void)
 {
     /* 0. GPIO 初始化 */
-    bq76940_gpio_init();
-
+    s_bq76940_gpio_init();
 
     /* 1. 唤醒芯片 */
     HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_SET);
@@ -245,18 +260,56 @@ bq76940_state_e bq76940_init(void)
     return BQ76940_STATE_OK;
 }
 
-
 /**
  * @description: 测试函数 负责测试static函数
  * @return {*}
  */
-void bq76940_test(void)
+void bq76940_static_test(void)
 {
-    LOG("\r\n========== BQ76940 Static Function Tests ==========\r\n\r\n");
+    LOG("\r\n========== BQ76940 Register R/W Test ==========\r\n\r\n");
 
-    uint8_t tmp = 0;
-    bq76940_read_byte_with_CRC(0x00,&tmp);
+    /* Test 1: 读 SYS_STAT (0x00) 验证基本读 */
+    {
+        uint8_t val = 0xFF;
+        bq76940_state_e ret = s_bq76940_read_byte_with_CRC(0x00, &val);
+        LOG("  [READ] SYS_STAT(0x00) = 0x%02X  %s\r\n",
+            val, ret == BQ76940_STATE_OK ? "OK" : "ERR");
+    }
 
+    /* Test 2: SYS_CTRL1 (0x04) 写读回环 */
+    {
+        uint8_t orig = 0, rback = 0;
+        bq76940_state_e ret;
 
-    LOG("========== Tests Complete ==========\r\n\r\n");
+        ret = s_bq76940_read_byte_with_CRC(0x04, &orig);
+        LOG("  [READ] SYS_CTRL1(0x04) orig = 0x%02X  %s\r\n",
+            orig, ret == BQ76940_STATE_OK ? "OK" : "ERR");
+
+        uint8_t test = orig ^ 0x01;
+        ret = s_bq76940_write_byte_with_CRC(0x04, test);
+        LOG("  [WRITE] SYS_CTRL1(0x04) <- 0x%02X  %s\r\n",
+            test, ret == BQ76940_STATE_OK ? "OK" : "ERR");
+
+        ret = s_bq76940_read_byte_with_CRC(0x04, &rback);
+        LOG("  [READ] SYS_CTRL1(0x04) rback = 0x%02X  %s\r\n",
+            rback, ret == BQ76940_STATE_OK ? "OK" : "ERR");
+
+        if (rback == test)
+            LOG("  [PASS] round-trip matched\r\n");
+        else
+            LOG("  [FAIL] wrote 0x%02X got 0x%02X\r\n", test, rback);
+
+        s_bq76940_write_byte_with_CRC(0x04, orig);
+        LOG("  [RESTORE] SYS_CTRL1(0x04) <- 0x%02X\r\n", orig);
+    }
+
+    /* Test 3: 读半字 CC_CFG (0x0B) */
+    {
+        uint16_t val = 0;
+        bq76940_state_e ret = s_bq76940_read_halfword_with_CRC(0x0B, &val);
+        LOG("  [READ] CC_CFG(0x0B) = 0x%04X  %s\r\n",
+            val, ret == BQ76940_STATE_OK ? "OK" : "ERR");
+    }
+
+    LOG("\r\n========== Test Complete ==========\r\n\r\n");
 }
