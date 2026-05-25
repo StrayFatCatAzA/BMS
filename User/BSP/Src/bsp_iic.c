@@ -12,27 +12,27 @@
 
 /* ========================== 内部函数声明 ========================== */
 
-static void a_SCL_H(void);
-static void a_SCL_L(void);
-static void a_SDA_H(void);
-static void a_SDA_L(void);
-static uint8_t a_SDA_IN(void);
+static void s_SCL_H(void);
+static void s_SCL_L(void);
+static void s_SDA_H(void);
+static void s_SDA_L(void);
+static uint8_t s_SDA_IN(void);
 
-static void a_iic_delay(void);
+static void s_iic_delay(void);
 
-static void a_iic_start(void);
-static void a_iic_stop(void);
+static void s_iic_start(void);
+static void s_iic_stop(void);
 
-static void a_iic_send_ack(void);
-static void a_iic_send_nack(void);
+static void s_iic_send_ack(void);
+static void s_iic_send_nack(void);
 
-static uint8_t a_iic_wait_ack(void);
+static uint8_t s_iic_wait_ack(void);
 
-static void a_iic_send_byte(uint8_t byte);
-static uint8_t a_iic_recv_byte(void);
+static void s_iic_send_byte(uint8_t byte);
+static uint8_t s_iic_recv_byte(void);
 
-static void iicENTER_CRITICAL(void);
-static void iicEXIT_CRITICAL(void);
+static void s_iicENTER_CRITICAL(void);
+static void s_iicEXIT_CRITICAL(void);
 
 /* ========================== 临界区函数接口 ========================== */
 
@@ -40,7 +40,7 @@ static void iicEXIT_CRITICAL(void);
  * @description: iic进入临界区
  * @return {*}
  */
-static void iicENTER_CRITICAL(void)
+static void s_iicENTER_CRITICAL(void)
 {
     // portENTER_CRITICAL();
 }
@@ -49,7 +49,7 @@ static void iicENTER_CRITICAL(void)
  * @description: iic退出临界区
  * @return {*}
  */
-static void iicEXIT_CRITICAL(void)
+static void s_iicEXIT_CRITICAL(void)
 {
     // portEXIT_CRITICAL();
 }
@@ -59,7 +59,7 @@ static void iicEXIT_CRITICAL(void)
 /**
  * @description: I2C 半周期延时 (~5us @ 72MHz, 约合 100kHz 标准模式)
  */
-static void a_iic_delay(void)
+static void s_iic_delay(void)
 {
     volatile uint16_t i = 60;
     while (i--)
@@ -74,47 +74,47 @@ static void a_iic_delay(void)
  * @description: SCL拉高
  * @return {*}
  */
-static void a_SCL_H(void)
+static void s_SCL_H(void)
 {
     HAL_GPIO_WritePin(IIC_SCL_PORT, IIC_SCL_PIN, GPIO_PIN_SET);
-    a_iic_delay();
+    s_iic_delay();
 }
 
 /**
  * @description: SCL拉低
  * @return {*}
  */
-static void a_SCL_L(void)
+static void s_SCL_L(void)
 {
     HAL_GPIO_WritePin(IIC_SCL_PORT, IIC_SCL_PIN, GPIO_PIN_RESET);
-    a_iic_delay();
+    s_iic_delay();
 }
 
 /**
  * @description: SDA拉高
  * @return {*}
  */
-static void a_SDA_H(void)
+static void s_SDA_H(void)
 {
     HAL_GPIO_WritePin(IIC_SDA_PORT, IIC_SDA_PIN, GPIO_PIN_SET);
-    a_iic_delay();
+    s_iic_delay();
 }
 
 /**
  * @description: SDA拉低
  * @return {*}
  */
-static void a_SDA_L(void)
+static void s_SDA_L(void)
 {
     HAL_GPIO_WritePin(IIC_SDA_PORT, IIC_SDA_PIN, GPIO_PIN_RESET);
-    a_iic_delay();
+    s_iic_delay();
 }
 
 /**
  * @description: 读SDA
  * @return SDA电平状态 1 - 高电平 0 -低电平
  */
-static uint8_t a_SDA_IN(void)
+static uint8_t s_SDA_IN(void)
 {
     return HAL_GPIO_ReadPin(IIC_SDA_PORT, IIC_SDA_PIN);
 }
@@ -125,24 +125,24 @@ static uint8_t a_SDA_IN(void)
  * @description: 产生 I2C 起始信号
  *   SCL 高电平期间 SDA 拉低
  */
-static void a_iic_start(void)
+static void s_iic_start(void)
 {
-    a_SDA_H();
-    a_SCL_H();
+    s_SDA_H();
+    s_SCL_H();
 
-    a_SDA_L();
-    a_SCL_L();
+    s_SDA_L();
+    s_SCL_L();
 }
 
 /**
  * @description: 产生 I2C 停止信号
  *   SCL 高电平期间 SDA 拉高
  */
-static void a_iic_stop(void)
+static void s_iic_stop(void)
 {
-    a_SDA_L();
-    a_SCL_H();
-    a_SDA_H();
+    s_SDA_L();
+    s_SCL_H();
+    s_SDA_H();
 }
 
 /* ========================== ACK / NACK ========================== */
@@ -150,38 +150,38 @@ static void a_iic_stop(void)
 /**
  * @description: 主机发送 ACK (第 9 个 SCL 期间 SDA 拉低)
  */
-static void a_iic_send_ack(void)
+static void s_iic_send_ack(void)
 {
-    a_SDA_L();
-    a_SCL_H();
-    a_SCL_L();
-    a_SDA_H(); /* 释放 SDA */
+    s_SDA_L();
+    s_SCL_H();
+    s_SCL_L();
+    s_SDA_H(); /* 释放 SDA */
 }
 
 /**
  * @description: 主机发送 NACK (第 9 个 SCL 期间 SDA 保持高)
  */
-static void a_iic_send_nack(void)
+static void s_iic_send_nack(void)
 {
-    a_SDA_H(); /* 拉高 = NACK */
-    a_SCL_H();
-    a_SCL_L();
+    s_SDA_H(); /* 拉高 = NACK */
+    s_SCL_H();
+    s_SCL_L();
 }
 
 /**
  * @description: 主机等待从机 ACK
  * @return 0 = ACK, 1 = NACK
  */
-static uint8_t a_iic_wait_ack(void)
+static uint8_t s_iic_wait_ack(void)
 {
     uint8_t ack;
 
-    a_SDA_H(); /* 释放 SDA，让从机驱动 */
-    a_SCL_H();
+    s_SDA_H(); /* 释放 SDA，让从机驱动 */
+    s_SCL_H();
 
-    ack = a_SDA_IN(); /* 0 = ACK, 1 = NACK */
+    ack = s_SDA_IN(); /* 0 = ACK, 1 = NACK */
 
-    a_SCL_L();
+    s_SCL_L();
 
     return ack;
 }
@@ -192,47 +192,47 @@ static uint8_t a_iic_wait_ack(void)
  * @description: 发送一个字节
  * @param byte 待发送的字节
  */
-static void a_iic_send_byte(uint8_t byte)
+static void s_iic_send_byte(uint8_t byte)
 {
     for (uint8_t i = 0; i < 8; i++)
     {
         if (byte & 0x80)
         {
-            a_SDA_H();
+            s_SDA_H();
         }
         else
         {
-            a_SDA_L();
+            s_SDA_L();
         }
-        a_SCL_H();
-        a_SCL_L();
+        s_SCL_H();
+        s_SCL_L();
 
         byte <<= 1;
     }
-    a_SDA_H(); /* 释放 SDA，等待 ACK */
+    s_SDA_H(); /* 释放 SDA，等待 ACK */
 }
 
 /**
  * @description: 接收一个字节
  * @return 接收到的字节
  */
-static uint8_t a_iic_recv_byte(void)
+static uint8_t s_iic_recv_byte(void)
 {
     uint8_t byte = 0;
 
-    a_SDA_H(); /* 释放 SDA */
+    s_SDA_H(); /* 释放 SDA */
 
     for (uint8_t i = 0; i < 8; i++)
     {
-        a_SCL_H();
+        s_SCL_H();
 
         byte <<= 1;
-        if (a_SDA_IN())
+        if (s_SDA_IN())
         {
             byte |= 0x01;
         }
 
-        a_SCL_L();
+        s_SCL_L();
     }
 
     return byte;
@@ -246,7 +246,7 @@ static uint8_t a_iic_recv_byte(void)
  *   SDA: PB9 开漏输出
  * @return 初始化是否成功 0 - 成功 1 - 失败
  */
-iic_state iic_soft_init(void)
+iic_state_e bsp_iic_soft_init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
@@ -265,8 +265,8 @@ iic_state iic_soft_init(void)
     HAL_GPIO_Init(IIC_SDA_PORT, &GPIO_InitStruct);
 
     /* 总线释放（高电平） */
-    a_SCL_H();
-    a_SDA_H();
+    s_SCL_H();
+    s_SDA_H();
 
     return IIC_OK;
 }
@@ -278,40 +278,40 @@ iic_state iic_soft_init(void)
  * @param  len 数据长度
  * @return 写入是否成功 0 - 成功 1 - 失败
  */
-iic_state iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t len)
+iic_state_e bsp_iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
         return IIC_ERR;
     }
 
-    iicENTER_CRITICAL();
+    s_iicENTER_CRITICAL();
 
-    a_iic_start();
+    s_iic_start();
 
-    a_iic_send_byte(dev_addr << 1);
-    if (a_iic_wait_ack())
+    s_iic_send_byte(dev_addr << 1);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
 
     for (uint16_t i = 0; i < len; i++)
     {
-        a_iic_send_byte(data[i]);
-        if (a_iic_wait_ack())
+        s_iic_send_byte(data[i]);
+        if (s_iic_wait_ack())
         {
-            a_iic_stop();
-            iicEXIT_CRITICAL();
+            s_iic_stop();
+            s_iicEXIT_CRITICAL();
 
             return IIC_ERR;
         }
     }
 
-    a_iic_stop();
-    iicEXIT_CRITICAL();
+    s_iic_stop();
+    s_iicEXIT_CRITICAL();
     return IIC_OK;
 }
 
@@ -322,42 +322,42 @@ iic_state iic_soft_write_data(uint8_t dev_addr, const uint8_t *data, uint16_t le
  * @param  len 接收数据的长度
  * @return 读取是否成功 0 - 成功 1 - 失败
  */
-iic_state iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
+iic_state_e bsp_iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
         return IIC_ERR;
     }
 
-    iicENTER_CRITICAL();
+    s_iicENTER_CRITICAL();
 
-    a_iic_start();
+    s_iic_start();
 
-    a_iic_send_byte((dev_addr << 1) | 0x01);
-    if (a_iic_wait_ack())
+    s_iic_send_byte((dev_addr << 1) | 0x01);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
 
     for (uint16_t i = 0; i < len; i++)
     {
-        data[i] = a_iic_recv_byte();
+        data[i] = s_iic_recv_byte();
 
         if (i < len - 1)
         {
-            a_iic_send_ack(); /* 非最后一字节 → ACK */
+            s_iic_send_ack(); /* 非最后一字节 → ACK */
         }
         else
         {
-            a_iic_send_nack(); /* 最后一字节   → NACK */
+            s_iic_send_nack(); /* 最后一字节   → NACK */
         }
     }
 
-    a_iic_stop();
-    iicEXIT_CRITICAL();
+    s_iic_stop();
+    s_iicEXIT_CRITICAL();
 
     return IIC_OK;
 }
@@ -370,49 +370,49 @@ iic_state iic_soft_read_data(uint8_t dev_addr, uint8_t *data, uint16_t len)
  * @param len 写入数据长度
  * @return 写入是否成功 0 - 成功 1 - 失败
  */
-iic_state iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *data, uint16_t len)
+iic_state_e bsp_iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
         return IIC_ERR;
     }
 
-    iicENTER_CRITICAL();
+    s_iicENTER_CRITICAL();
 
-    a_iic_start();
+    s_iic_start();
 
-    a_iic_send_byte(dev_addr << 1);
-    if (a_iic_wait_ack())
+    s_iic_send_byte(dev_addr << 1);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
 
-    a_iic_send_byte(reg);
-    if (a_iic_wait_ack())
+    s_iic_send_byte(reg);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
 
     for (uint16_t i = 0; i < len; i++)
     {
-        a_iic_send_byte(data[i]);
-        if (a_iic_wait_ack())
+        s_iic_send_byte(data[i]);
+        if (s_iic_wait_ack())
         {
-            a_iic_stop();
-            iicEXIT_CRITICAL();
+            s_iic_stop();
+            s_iicEXIT_CRITICAL();
 
             return IIC_ERR;
         }
     }
 
-    a_iic_stop();
-    iicEXIT_CRITICAL();
+    s_iic_stop();
+    s_iicEXIT_CRITICAL();
 
     return IIC_OK;
 }
@@ -425,7 +425,7 @@ iic_state iic_soft_mem_write_data(uint8_t dev_addr, uint8_t reg, const uint8_t *
  * @param len 接收数据的长度
  * @return 读取是否成功 0 - 成功 1 - 失败
  */
-iic_state iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, uint16_t len)
+iic_state_e bsp_iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, uint16_t len)
 {
     if (data == NULL || len == 0)
     {
@@ -433,52 +433,52 @@ iic_state iic_soft_mem_read_data(uint8_t dev_addr, uint8_t reg, uint8_t *data, u
     }
 
     /* 第一阶段: 写入寄存器地址 */
-    iicENTER_CRITICAL();
-    a_iic_start();
-    a_iic_send_byte(dev_addr << 1);
-    if (a_iic_wait_ack())
+    s_iicENTER_CRITICAL();
+    s_iic_start();
+    s_iic_send_byte(dev_addr << 1);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
-    a_iic_send_byte(reg);
-    if (a_iic_wait_ack())
+    s_iic_send_byte(reg);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
 
     /* 第二阶段: 重新开始 + 读取数据 */
-    a_iic_start();
-    a_iic_send_byte((dev_addr << 1) | 0x01);
-    if (a_iic_wait_ack())
+    s_iic_start();
+    s_iic_send_byte((dev_addr << 1) | 0x01);
+    if (s_iic_wait_ack())
     {
-        a_iic_stop();
-        iicEXIT_CRITICAL();
+        s_iic_stop();
+        s_iicEXIT_CRITICAL();
 
         return IIC_ERR;
     }
 
     for (uint16_t i = 0; i < len; i++)
     {
-        data[i] = a_iic_recv_byte();
+        data[i] = s_iic_recv_byte();
 
         if (i < len - 1)
         {
-            a_iic_send_ack();
+            s_iic_send_ack();
         }
         else
         {
-            a_iic_send_nack();
+            s_iic_send_nack();
         }
     }
 
-    a_iic_stop();
-    iicEXIT_CRITICAL();
+    s_iic_stop();
+    s_iicEXIT_CRITICAL();
     
     return IIC_OK;
 }

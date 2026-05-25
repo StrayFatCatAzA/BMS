@@ -52,7 +52,7 @@ static uint8_t bq76940_crc(uint8_t *data, uint16_t len);
  */
 static bq76940_state bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
 {
-    if (iic_soft_mem_write_data(dev_addr, reg_addr, data, len) != IIC_OK)
+    if (bsp_iic_soft_mem_write_data(dev_addr, reg_addr, data, len) != IIC_OK)
         return BQ76940_STATE_ERR;
 
     return BQ76940_STATE_OK;
@@ -68,7 +68,7 @@ static bq76940_state bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_
  */
 static bq76940_state bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
-    if (iic_soft_mem_read_data(dev_addr, reg_addr, data, len) != IIC_OK)
+    if (bsp_iic_soft_mem_read_data(dev_addr, reg_addr, data, len) != IIC_OK)
         return BQ76940_STATE_ERR;
 
     return BQ76940_STATE_OK;

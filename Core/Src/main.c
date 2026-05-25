@@ -107,7 +107,7 @@ int main(void)
 
   bsp_uart1_printf("uart init done\r\n");
   
-  if (iic_soft_init() != IIC_OK)
+  if (bsp_iic_soft_init() != IIC_OK)
   {
     bsp_uart1_printf("iic init failed\r\n");
   }
