@@ -24,8 +24,8 @@
 
 #define BQ76940_DEVICE_ADDR 0x08
 
-#define LOG uart1_printf
-#define LOG_E uart1_printf
+#define LOG bsp_uart1_printf
+#define LOG_E bsp_uart1_printf
 
 /* ================================ IIC 接口函数声明 ================================ */
 

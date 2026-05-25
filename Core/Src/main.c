@@ -100,26 +100,26 @@ int main(void)
 
   drv_led_set_state(DRV_LED_ON);
 
-  if (uart1_init() != UART_STATE_OK)
+  if (bsp_uart1_init() != UART_STATE_OK)
   {
-    uart1_printf("uart init failed\r\n");
+    bsp_uart1_printf("uart init failed\r\n");
   }
 
-  uart1_printf("uart init done\r\n");
+  bsp_uart1_printf("uart init done\r\n");
   
   if (iic_soft_init() != IIC_OK)
   {
-    uart1_printf("iic init failed\r\n");
+    bsp_uart1_printf("iic init failed\r\n");
   }
 
-  uart1_printf("iic init done\r\n");
+  bsp_uart1_printf("iic init done\r\n");
 
   if (bq76940_init() != BQ76940_STATE_OK)
   {
-    uart1_printf("bq76940 init failed\r\n");
+    bsp_uart1_printf("bq76940 init failed\r\n");
   }
 
-  uart1_printf("bq76940 init done\r\n");
+  bsp_uart1_printf("bq76940 init done\r\n");
 
   bq76940_test();
 
