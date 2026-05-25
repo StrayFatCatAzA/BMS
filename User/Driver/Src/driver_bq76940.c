@@ -1,13 +1,14 @@
 #include "driver_bq76940.h"
 
+/* C库头文件 */
 #include <stdio.h>
 #include <stddef.h>
-
+/* HAL 库头文件 */
 #include "stm32f1xx_hal.h"
-
+/* BSP 层头文件 */
 #include "bsp_iic.h"
 #include "bsp_uart1.h"
-
+/* BQ76940 驱动码 头文件 */
 #include "driver_bq76940_reg.h"
 
 /* ================================ BQ76940 引脚定义 ================================ */
@@ -29,15 +30,15 @@
 
 /* ================================ IIC 接口函数声明 ================================ */
 
-static bq76940_state bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len);
-static bq76940_state bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
+static bq76940_state_e bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len);
+static bq76940_state_e bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
 
 /* ================================ 内部静态函数声明 ================================ */
 
 static void bq76940_gpio_init(void);
-static bq76940_state bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte);
-static bq76940_state bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte);
-static bq76940_state bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword);
+static bq76940_state_e bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte);
+static bq76940_state_e bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte);
+static bq76940_state_e bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword);
 static uint8_t bq76940_crc(uint8_t *data, uint16_t len);
 
 /* ================================ IIC 接口函数实现 ================================ */
@@ -50,7 +51,7 @@ static uint8_t bq76940_crc(uint8_t *data, uint16_t len);
  * @param {uint16_t} len 数据长度
  * @return {*}
  */
-static bq76940_state bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
+static bq76940_state_e bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
 {
     if (bsp_iic_soft_mem_write_data(dev_addr, reg_addr, data, len) != IIC_OK)
         return BQ76940_STATE_ERR;
@@ -66,7 +67,7 @@ static bq76940_state bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_
  * @param {uint16_t} len 要读取数据长度
  * @return {*}
  */
-static bq76940_state bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
+static bq76940_state_e bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     if (bsp_iic_soft_mem_read_data(dev_addr, reg_addr, data, len) != IIC_OK)
         return BQ76940_STATE_ERR;
@@ -109,7 +110,7 @@ void bq76940_gpio_init(void)
  * @param {uint8_t} byte 写入的字节数据
  * @return {*}
  */
-static bq76940_state bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte)
+static bq76940_state_e bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte)
 {
     uint8_t crc_buf[3] = {0};
     uint8_t send_buf[2] = {0};
@@ -140,7 +141,7 @@ static bq76940_state bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte)
  * @param {uint8_t} *byte 读取的字节数据
  * @return {*}
  */
-static bq76940_state bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte)
+static bq76940_state_e bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte)
 {
     // uint8_t crc_buf[2] = {0};
     // uint8_t crc;
@@ -174,7 +175,7 @@ static bq76940_state bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte)
  * @param {uint16_t} halfword 读取的半字数据
  * @return {*}
  */
-static bq76940_state bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword)
+static bq76940_state_e bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword)
 {
     uint8_t high_byte = 0, low_byte = 0;
 
@@ -227,7 +228,7 @@ static uint8_t bq76940_crc(uint8_t *data, uint16_t len)
  * @description: BQ76940 初始化函数
  * @return {*}
  */
-bq76940_state bq76940_init(void)
+bq76940_state_e bq76940_init(void)
 {
     /* 0. GPIO 初始化 */
     bq76940_gpio_init();
