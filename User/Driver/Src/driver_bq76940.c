@@ -41,7 +41,6 @@ typedef struct
 /* ================================ 内部静态变量声明 ================================ */
 
 static bq79640_compensation_t s_bq79640_compensation_strcut;
-static bq76940_init_s s_bq76940_struct;
 
 /* ================================ IIC 接口函数声明 ================================ */
 
@@ -259,7 +258,7 @@ static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len)
  * @description: BQ76940 初始化函数
  * @return {*}
  */
-bq76940_state_e bq76940_init(bq76940_init_s *structure)
+bq76940_state_e bq76940_init(void)
 {
     /* 0. GPIO 初始化 */
     s_bq76940_gpio_init();
@@ -272,18 +271,6 @@ bq76940_state_e bq76940_init(bq76940_init_s *structure)
 
     /* 3. 获取 gain和 offest 值 */
     bq76940_get_calibration(&s_bq79640_compensation_strcut.gain_uv, &s_bq79640_compensation_strcut.offset_mv);
-
-    if (structure == NULL)
-    {
-        LOG_E("Failed to init:init structure is NULL\r\n");
-
-        return BQ76940_STATE_ERR;
-    }
-
-    /* 4. 获取初始化结构体值 */
-    s_bq76940_struct.cell_num = structure->cell_num;
-    s_bq76940_struct.ov_threshold = structure->ov_threshold;
-    s_bq76940_struct.uv_threshold = structure->uv_threshold;
 
     return BQ76940_STATE_OK;
 }
@@ -493,20 +480,20 @@ bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
 }
 
 /**
- * @description: bq76940获取全部电芯电压
+ * @description: bq76940获取电池全部电芯电压
  * @param {uint16_t} *voltage 接收电芯电压数组
- * @param {uint16_t} vol_len 电芯数量
+ * @param {uint16_t} cell_num 电芯数量
  * @return {*}
  */
-bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t vol_len)
+bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_num)
 {
     uint16_t raw;
     int32_t mv;
-    uint16_t count = (vol_len > 15) ? 15 : vol_len;
+    uint16_t count = (cell_num > 15) ? 15 : cell_num;
 
     if (count == 0 || voltage == NULL)
     {
-        LOG_E("Failed to get all cell voltage:voltage or vol_len err\r\n");
+        LOG_E("Failed to get all cell voltage:voltage or cell_num err\r\n");
 
         return BQ76940_STATE_ERR;
     }
@@ -529,16 +516,17 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t vol_len
 }
 
 /**
- * @description: bq76940获取总电压
- * @param {uint16_t} *total_voltage 总电压
+ * @description: bq76940获取电池总电压
+ * @param {uint16_t} *total_voltage 电池总电压 单位mV
+ * @param {uint16_t} cell_num 电芯数量
  * @return {*}
  */
-bq76940_state_e bq76940_get_total_voltage(uint16_t *total_voltage)
+bq76940_state_e bq76940_get_battery_voltage(uint16_t *battery_voltage,uint16_t cell_num)
 {
     uint16_t raw;
     uint16_t mv;
 
-    if (total_voltage == NULL)
+    if (battery_voltage == NULL || cell_num == 0)
     {
         LOG_E("Failed to get total voltage: null pointer\r\n");
 
@@ -547,14 +535,14 @@ bq76940_state_e bq76940_get_total_voltage(uint16_t *total_voltage)
 
     if (s_bq76940_read_halfword_with_CRC(BQ76940_BAT_HI, &raw) != BQ76940_STATE_OK)
     {
-        LOG_E("Failed to read BAT_HI");
+        LOG_E("Failed to get read BAT_HI");
 
         return BQ76940_STATE_ERR;
     }
 
-    mv = 4 * s_bq79640_compensation_strcut.gain_uv * raw * 0.001f + (s_bq76940_struct.cell_num * s_bq79640_compensation_strcut.offset_mv);
+    mv = 4 * s_bq79640_compensation_strcut.gain_uv * raw * 0.001f + (cell_num * s_bq79640_compensation_strcut.offset_mv);
 
-    *total_voltage = (uint16_t)mv;
+    *battery_voltage = (uint16_t)mv;
 
     return BQ76940_STATE_OK;
 }

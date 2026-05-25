@@ -118,10 +118,7 @@ int main(void)
 
   bsp_uart1_printf("iic init done\r\n");
 
-  bq76940_init_s bq76940_init_structure;
-  bq76940_init_structure.cell_num = 9;
-
-  if (bq76940_init(&bq76940_init_structure) != BQ76940_STATE_OK)
+  if (bq76940_init() != BQ76940_STATE_OK)
   {
     bsp_uart1_printf("bq76940 init failed\r\n");
   }
@@ -129,8 +126,9 @@ int main(void)
   bsp_uart1_printf("bq76940 init done\r\n");
 
   // bq76940_static_test();
-  uint16_t pack_v = 0;
-  uint16_t cell_v[9];
+  const uint16_t cell_number = 9;
+  uint16_t battery_voltage = 0;
+  uint16_t cells_voltage[cell_number];
   uint16_t gain = 0;
   int8_t offset = 0;
 
@@ -138,32 +136,32 @@ int main(void)
   bq76940_set_temperature_collection(BQ76940_ENABLE);
   bq76940_set_current_collection(BQ76940_ENABLE);
 
-  bq76940_get_total_voltage(&pack_v);
+  bq76940_get_battery_voltage(&battery_voltage, cell_number);
 
-  bq76940_get_cell_voltage(0, &cell_v[0]);
-  bq76940_get_cell_voltage(1, &cell_v[1]);
-  bq76940_get_cell_voltage(4, &cell_v[2]);
-  bq76940_get_cell_voltage(5, &cell_v[3]);
-  bq76940_get_cell_voltage(6, &cell_v[4]);
-  bq76940_get_cell_voltage(9, &cell_v[5]);
-  bq76940_get_cell_voltage(10, &cell_v[6]);
-  bq76940_get_cell_voltage(11, &cell_v[7]);
-  bq76940_get_cell_voltage(14, &cell_v[8]);
+  bq76940_get_cell_voltage(0, &cells_voltage[0]);
+  bq76940_get_cell_voltage(1, &cells_voltage[1]);
+  bq76940_get_cell_voltage(4, &cells_voltage[2]);
+  bq76940_get_cell_voltage(5, &cells_voltage[3]);
+  bq76940_get_cell_voltage(6, &cells_voltage[4]);
+  bq76940_get_cell_voltage(9, &cells_voltage[5]);
+  bq76940_get_cell_voltage(10, &cells_voltage[6]);
+  bq76940_get_cell_voltage(11, &cells_voltage[7]);
+  bq76940_get_cell_voltage(14, &cells_voltage[8]);
 
   bq76940_get_calibration(&gain, &offset);
   printf("gain %d offset: %d \r\n", gain, offset);
 
-  printf("Battery voltage: %d.%03d V\r\n", pack_v / 1000, pack_v % 1000);
+  printf("Battery voltage: %d.%03d V\r\n", battery_voltage / 1000, battery_voltage % 1000);
 
-  printf("cell %d voltage: %d.%03d V\r\n", 1, cell_v[0] / 1000, cell_v[0] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 2, cell_v[1] / 1000, cell_v[1] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 3, cell_v[2] / 1000, cell_v[2] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 4, cell_v[3] / 1000, cell_v[3] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 5, cell_v[4] / 1000, cell_v[4] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 6, cell_v[5] / 1000, cell_v[5] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 7, cell_v[6] / 1000, cell_v[6] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 8, cell_v[7] / 1000, cell_v[7] % 1000);
-  printf("cell %d voltage: %d.%03d V\r\n", 9, cell_v[8] / 1000, cell_v[8] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 1, cells_voltage[0] / 1000, cells_voltage[0] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 2, cells_voltage[1] / 1000, cells_voltage[1] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 3, cells_voltage[2] / 1000, cells_voltage[2] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 4, cells_voltage[3] / 1000, cells_voltage[3] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 5, cells_voltage[4] / 1000, cells_voltage[4] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 6, cells_voltage[5] / 1000, cells_voltage[5] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 7, cells_voltage[6] / 1000, cells_voltage[6] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 8, cells_voltage[7] / 1000, cells_voltage[7] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 9, cells_voltage[8] / 1000, cells_voltage[8] % 1000);
 
   /* USER CODE END 2 */
 

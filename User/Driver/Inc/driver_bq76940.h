@@ -48,19 +48,12 @@ typedef enum
     BQ76940_ENABLE = 1
 } bq76940_function_state_e;
 
-typedef struct driver_bq76940_s
-{
-    uint16_t cell_num;
-    uint16_t ov_threshold;
-    uint16_t uv_threshold;
-}bq76940_init_s;
-
 
 /**
  * @description: bq76940初始化
  * @return {*}
  */
-bq76940_state_e bq76940_init(bq76940_init_s *structure);
+bq76940_state_e bq76940_init(void);
 
 /**
  * @description: bq76940进入低功耗模式
@@ -120,11 +113,12 @@ bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
 bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t vol_len);
 
 /**
- * @description: bq76940获取总电压
- * @param {uint16_t} *total_voltage 总电压
+ * @description: bq76940获取电池总电压
+ * @param {uint16_t} *battery_voltage 电池总电压
+ * @param {uint16_t} cell_num 电芯数量
  * @return {*}
  */
-bq76940_state_e bq76940_get_total_voltage(uint16_t *total_voltage);
+bq76940_state_e bq76940_get_battery_voltage(uint16_t *total_voltage,uint16_t cell_num);
 
 /**
  * @description: bq76940获取NTC温度
