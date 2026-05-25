@@ -3,18 +3,30 @@
 
 #include <stdint.h>
 
+/**
+ * @description: bq76940 系统模式枚举
+ * @return {*}
+ */
 typedef enum
 {
     BQ76940_MODE_NORMAL = 0,
     BQ76940_MODE_SHIP = 1,
-}bq76940_mode_e;
+} bq76940_system_mode_e;
 
+/**
+ * @description: bq76940 状态枚举
+ * @return {*}
+ */
 typedef enum
 {
     BQ76940_STATE_OK = 0,
     BQ76940_STATE_ERR
 } bq76940_state_e;
 
+/**
+ * @description: bq76940 错误码枚举
+ * @return {*}
+ */
 typedef enum
 {
     BQ76940_ERR_CODE_XREADY = 0,
@@ -27,10 +39,28 @@ typedef enum
 } bq76940_err_code_e;
 
 /**
+ * @description: 功能状态枚举
+ * @return {*}
+ */
+typedef enum
+{
+    BQ76940_DISENABLE = 0,
+    BQ76940_ENABLE = 1
+} bq76940_function_state_e;
+
+typedef struct driver_bq76940_s
+{
+    uint16_t cell_num;
+    uint16_t ov_threshold;
+    uint16_t uv_threshold;
+}bq76940_init_s;
+
+
+/**
  * @description: bq76940初始化
  * @return {*}
  */
-bq76940_state_e bq76940_init(void);
+bq76940_state_e bq76940_init(bq76940_init_s *structure);
 
 /**
  * @description: bq76940进入低功耗模式
@@ -45,32 +75,56 @@ bq76940_state_e bq76940_enter_ship(void);
 bq76940_state_e bq76940_wake_up(void);
 
 /**
- * @description: bq76940软复位
+ * @description: bq76940设置电压采样状态
+ * @param {bq76940_ADC_state} state 电压采集功能状态
  * @return {*}
  */
-bq76940_state_e bq76940_reset(void);
+bq76940_state_e bq76940_set_voltage_collection(bq76940_function_state_e state);
 
 /**
- * @description: bq76940获取指定索引的电池电压
- * @param {uint8_t} cell_index 电池索引
- * @param {uint8_t} *cell 电池电压
+ * @description: bq76940设置电流采样状态
+ * @param {bq76940_function_state_e} state 电流采样功能状态
  * @return {*}
  */
-bq76940_state_e bq76940_get_cell_voltage(uint8_t cell_index, uint8_t *cell);
+bq76940_state_e bq76940_set_current_collection(bq76940_function_state_e state);
 
 /**
- * @description: bq76940获取全部索引的电池电压
- * @param {uint8_t} *cells 电池电压数组指针
+ * @description: bq76940设置温度采样状态
+ * @param {bq76940_function_state_e} state 温度采样功能状态
  * @return {*}
  */
-bq76940_state_e bq76940_get_all_cell_voltage(uint8_t *cells);
+bq76940_state_e bq76940_set_temperature_collection(bq76940_function_state_e state);
+
+/**
+ * @description: bq76940获取校准参数
+ * @param {uint16_t} *adc_gain ADC增益指针
+ * @param {int8_t} *adc_offset ADC偏置指针
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_calibration(uint16_t *adc_gain, int8_t *adc_offset);
+
+/**
+ * @description: bq76940获取指定电芯电压
+ * @param {uint16_t} cell_index 电芯索引 0-14
+ * @param {uint16_t} *voltage 电芯电压
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage);
+
+/**
+ * @description: bq76940获取全部电池电压
+ * @param {uint16_t} *voltage 接收电芯电压数组
+ * @param {uint16_t} vol_len 电芯数量
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t vol_len);
 
 /**
  * @description: bq76940获取总电压
- * @param {uint8_t} *pack_cells 总电压
+ * @param {uint16_t} *total_voltage 总电压
  * @return {*}
  */
-bq76940_state_e bq76940_get_pack_voltage(uint8_t *pack_cells);
+bq76940_state_e bq76940_get_total_voltage(uint16_t *total_voltage);
 
 /**
  * @description: bq76940获取NTC温度
@@ -167,19 +221,21 @@ bq76940_state_e bq76940_disable_discharge(void);
 
 /**
  * @description: 开始均衡指定电芯
- * @param {uint8_t} cell_index 电芯索引
+ * @param {uint16_t} cell_index 电芯索引
+ * @param {uint8_t} *cell 电池数组指针
+ * @param {uint16_t} cells_len 电池数组长度
  * @return {*}
  */
-bq76940_state_e bq76940_start_banlance(uint8_t cell_index); 
+bq76940_state_e bq76940_start_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
 
 /**
  * @description: 停止均衡指定电芯
- * @param {uint8_t} cell_index 电芯索引
+ * @param {uint16_t} cell_index 电芯索引
+ * @param {uint8_t} *cell 电池数组指针
+ * @param {uint16_t} cells_len 电池数组长度
  * @return {*}
  */
-bq76940_state_e bq76940_stop_banlance(uint8_t cell_index); 
-
-
+bq76940_state_e bq76940_stop_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
 
 void bq76940_static_test(void);
 

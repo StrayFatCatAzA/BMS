@@ -59,7 +59,11 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+const uint8_t cell_id_index_map[9] = {
+    1, 2,
+    5, 6, 7,
+    10, 11, 12,
+    15};
 /* USER CODE END 0 */
 
 /**
@@ -106,7 +110,7 @@ int main(void)
   }
 
   bsp_uart1_printf("uart init done\r\n");
-  
+
   if (bsp_iic_soft_init() != IIC_OK)
   {
     bsp_uart1_printf("iic init failed\r\n");
@@ -114,19 +118,57 @@ int main(void)
 
   bsp_uart1_printf("iic init done\r\n");
 
-  if (bq76940_init() != BQ76940_STATE_OK)
+  bq76940_init_s bq76940_init_structure;
+  bq76940_init_structure.cell_num = 9;
+
+  if (bq76940_init(&bq76940_init_structure) != BQ76940_STATE_OK)
   {
     bsp_uart1_printf("bq76940 init failed\r\n");
   }
 
   bsp_uart1_printf("bq76940 init done\r\n");
 
-  bq76940_static_test();
+  // bq76940_static_test();
+  uint16_t pack_v = 0;
+  uint16_t cell_v[9];
+  uint16_t gain = 0;
+  int8_t offset = 0;
+
+  bq76940_set_voltage_collection(BQ76940_ENABLE);
+  bq76940_set_temperature_collection(BQ76940_ENABLE);
+  bq76940_set_current_collection(BQ76940_ENABLE);
+
+  bq76940_get_total_voltage(&pack_v);
+
+  bq76940_get_cell_voltage(0, &cell_v[0]);
+  bq76940_get_cell_voltage(1, &cell_v[1]);
+  bq76940_get_cell_voltage(4, &cell_v[2]);
+  bq76940_get_cell_voltage(5, &cell_v[3]);
+  bq76940_get_cell_voltage(6, &cell_v[4]);
+  bq76940_get_cell_voltage(9, &cell_v[5]);
+  bq76940_get_cell_voltage(10, &cell_v[6]);
+  bq76940_get_cell_voltage(11, &cell_v[7]);
+  bq76940_get_cell_voltage(14, &cell_v[8]);
+
+  bq76940_get_calibration(&gain, &offset);
+  printf("gain %d offset: %d \r\n", gain, offset);
+
+  printf("Battery voltage: %d.%03d V\r\n", pack_v / 1000, pack_v % 1000);
+
+  printf("cell %d voltage: %d.%03d V\r\n", 1, cell_v[0] / 1000, cell_v[0] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 2, cell_v[1] / 1000, cell_v[1] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 3, cell_v[2] / 1000, cell_v[2] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 4, cell_v[3] / 1000, cell_v[3] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 5, cell_v[4] / 1000, cell_v[4] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 6, cell_v[5] / 1000, cell_v[5] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 7, cell_v[6] / 1000, cell_v[6] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 8, cell_v[7] / 1000, cell_v[7] % 1000);
+  printf("cell %d voltage: %d.%03d V\r\n", 9, cell_v[8] / 1000, cell_v[8] % 1000);
 
   /* USER CODE END 2 */
 
   /* Init scheduler */
-  osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
+  osKernelInitialize(); /* Call init function for freertos objects (in cmsis_os2.c) */
   MX_FREERTOS_Init();
 
   /* Start scheduler */

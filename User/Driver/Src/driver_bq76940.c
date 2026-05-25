@@ -25,8 +25,23 @@
 
 #define BQ76940_DEVICE_ADDR 0x08
 
+/* ================================ 串口宏定义 ================================ */
+
 #define LOG bsp_uart1_printf
 #define LOG_E bsp_uart1_printf
+
+/* ================================ BQ76940 结构体定义 ================================ */
+
+typedef struct
+{
+    uint16_t gain_uv; // 667
+    int8_t offset_mv; // 47
+} bq79640_compensation_t;
+
+/* ================================ 内部静态变量声明 ================================ */
+
+static bq79640_compensation_t s_bq79640_compensation_strcut;
+static bq76940_init_s s_bq76940_struct;
 
 /* ================================ IIC 接口函数声明 ================================ */
 
@@ -157,7 +172,7 @@ static bq76940_state_e s_bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *b
     crc_buf[1] = recv_data[0];                      // Received data
     crc = s_bq76940_crc(crc_buf, 2);
 
-    LOG_E("Received byte: 0x%02X, CRC from device: 0x%02X\r\n", recv_data[0], recv_data[1]);
+    // LOG_E("Received byte: 0x%02X, CRC from device: 0x%02X\r\n", recv_data[0], recv_data[1]);
 
     if (crc != recv_data[1])
     {
@@ -244,11 +259,68 @@ static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len)
  * @description: BQ76940 初始化函数
  * @return {*}
  */
-bq76940_state_e bq76940_init(void)
+bq76940_state_e bq76940_init(bq76940_init_s *structure)
 {
     /* 0. GPIO 初始化 */
     s_bq76940_gpio_init();
 
+    /* 1. 唤醒芯片 */
+    bq76940_wake_up();
+
+    /* 2. 等待芯片启动完成 */
+    HAL_Delay(10);
+
+    /* 3. 获取 gain和 offest 值 */
+    bq76940_get_calibration(&s_bq79640_compensation_strcut.gain_uv, &s_bq79640_compensation_strcut.offset_mv);
+
+    if (structure == NULL)
+    {
+        LOG_E("Failed to init:init structure is NULL\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    /* 4. 获取初始化结构体值 */
+    s_bq76940_struct.cell_num = structure->cell_num;
+    s_bq76940_struct.ov_threshold = structure->ov_threshold;
+    s_bq76940_struct.uv_threshold = structure->uv_threshold;
+
+    return BQ76940_STATE_OK;
+}
+
+/**
+ * @description: bq76940进入低功耗模式
+ * @return {*}
+ */
+bq76940_state_e bq76940_enter_ship(void)
+{
+    /* 连续向 SYS_CTRL1 的 SHUT_A/SHUT_B 位写入 */
+    uint8_t shut_a = 0x08;
+    uint8_t shut_b = 0x10;
+
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, shut_a) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to enter ship! SHUT_A error\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, shut_b) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to enter ship! SHUT_B error\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    return BQ76940_STATE_OK;
+}
+
+/**
+ * @description: bq76940唤醒
+ * @return {*}
+ */
+bq76940_state_e bq76940_wake_up(void)
+{
     /* 1. 唤醒芯片 */
     HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_SET);
     HAL_Delay(100);
@@ -259,6 +331,342 @@ bq76940_state_e bq76940_init(void)
 
     return BQ76940_STATE_OK;
 }
+
+/**
+ * @description: bq76940设置电压采样状态
+ * @param {bq76940_function_state_e} state 电压采集功能状态
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_voltage_collection(bq76940_function_state_e state)
+{
+    uint8_t reg_val = 0;
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &reg_val) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to set voltage collection\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (state == BQ76940_ENABLE)
+    {
+        reg_val |= (BQ76940_ADC_EN_MASK | BQ76940_TEMP_SEL_MASK);
+    }
+    else
+    {
+        reg_val &= ~(BQ76940_ADC_EN_MASK | BQ76940_TEMP_SEL_MASK);
+    }
+
+    return s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, reg_val);
+}
+
+/**
+ * @description: bq76940设置电流采样状态
+ * @param {bq76940_function_state_e} state 电流采样功能状态
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_current_collection(bq76940_function_state_e state)
+{
+    uint8_t reg_val = 0;
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_CC_CFG, &reg_val) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to set current collection\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (state == BQ76940_ENABLE)
+    {
+        reg_val |= BQ76940_CC_EN_MASK;
+    }
+    else
+    {
+        reg_val &= ~BQ76940_CC_EN_MASK;
+    }
+
+    return s_bq76940_write_byte_with_CRC(BQ76940_CC_CFG, reg_val);
+}
+
+/**
+ * @description: bq76940设置温度采样状态
+ * @param {bq76940_function_state_e} state 温度采样功能状态
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_temperature_collection(bq76940_function_state_e state)
+{
+    uint8_t reg_val = 0;
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &reg_val) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to set temperature collection\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (state == BQ76940_ENABLE)
+    {
+        reg_val |= BQ76940_TEMP_SEL_MASK;
+    }
+    else
+    {
+        reg_val &= ~BQ76940_TEMP_SEL_MASK;
+    }
+
+    return s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, reg_val);
+}
+
+/**
+ * @description: bq76940获取校准参数
+ * @param {uint16_t} *adc_gain ADC增益指针
+ * @param {int8_t} *adc_offset ADC偏置指针
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_calibration(uint16_t *adc_gain, int8_t *adc_offset)
+{
+    uint8_t gain_buf[2] = {0};
+    uint8_t offset = 0;
+
+    if (adc_gain == NULL || adc_offset == NULL)
+    {
+        return BQ76940_STATE_ERR;
+    }
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCGAIN1, &gain_buf[0]) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to read ADC GAIN1\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCGAIN2, &gain_buf[1]) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to read ADC GAIN2\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCOFFSET, &offset) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to read ADC OFFSET\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    *adc_gain = ((gain_buf[0] & 0x0C) << 1) | ((gain_buf[1] & 0xE0) >> 5) + 365;
+    *adc_offset = (int8_t)offset;
+
+    return BQ76940_STATE_OK;
+}
+
+/**
+ * @description: bq76940获取指定电芯电压
+ * @param {uint16_t} cell_index 电芯索引0-14 (对应第1-15节)
+ * @param {uint16_t} *voltage 电芯电压
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
+{
+    uint16_t raw;
+    uint16_t mv;
+
+    if (cell_index > 14 || voltage == NULL)
+    {
+        LOG_E("Failed to get cell voltage:cell or voltage err\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_VC1_HI + (cell_index * 2), &raw) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to get cell voltage: read reg err\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    /* Vcell(mV) = ADC × Gain(μV) / 1000 + Offset(mV) */
+    mv = ((raw * s_bq79640_compensation_strcut.gain_uv) * 0.001f) + s_bq79640_compensation_strcut.offset_mv;
+
+    *voltage = mv;
+
+    return BQ76940_STATE_OK;
+}
+
+/**
+ * @description: bq76940获取全部电芯电压
+ * @param {uint16_t} *voltage 接收电芯电压数组
+ * @param {uint16_t} vol_len 电芯数量
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t vol_len)
+{
+    uint16_t raw;
+    int32_t mv;
+    uint16_t count = (vol_len > 15) ? 15 : vol_len;
+
+    if (count == 0 || voltage == NULL)
+    {
+        LOG_E("Failed to get all cell voltage:voltage or vol_len err\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    for (uint16_t i = 0; i < count; i++)
+    {
+        if (s_bq76940_read_halfword_with_CRC((uint8_t)(BQ76940_VC1_HI + i * 2 + 1), &raw) != BQ76940_STATE_OK)
+        {
+            LOG_E("Failed to get cell voltage: read reg err\r\n");
+
+            return BQ76940_STATE_ERR;
+        }
+
+        mv = ((raw * s_bq79640_compensation_strcut.gain_uv) * 0.001f) + s_bq79640_compensation_strcut.offset_mv;
+
+        voltage[i] = (uint16_t)mv;
+    }
+
+    return BQ76940_STATE_OK;
+}
+
+/**
+ * @description: bq76940获取总电压
+ * @param {uint16_t} *total_voltage 总电压
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_total_voltage(uint16_t *total_voltage)
+{
+    uint16_t raw;
+    uint16_t mv;
+
+    if (total_voltage == NULL)
+    {
+        LOG_E("Failed to get total voltage: null pointer\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_BAT_HI, &raw) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to read BAT_HI");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    mv = 4 * s_bq79640_compensation_strcut.gain_uv * raw * 0.001f + (s_bq76940_struct.cell_num * s_bq79640_compensation_strcut.offset_mv);
+
+    *total_voltage = (uint16_t)mv;
+
+    return BQ76940_STATE_OK;
+}
+
+/**
+ * @description: bq76940获取NTC温度
+ * @param {uint8_t} *NTC_temperature NTC温度
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_NTC_temperature(uint8_t *NTC_temperature);
+
+/**
+ * @description: bq76940获取芯片温度
+ * @param {uint8_t} *temperature 芯片温度
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_die_temperature(uint8_t *temperature);
+
+/**
+ * @description: 获取电流值
+ * @param {uint8_t} *current 电流值
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_current(uint8_t *current);
+
+/**
+ * @description: 获取CC原始值
+ * @param {uint8_t} *cc_raw 原始CC值
+ * @return {*}
+ */
+bq76940_state_e bq76940_get_current_raw(uint8_t *cc_raw);
+
+/**
+ * @description: 设置过压值
+ * @param {uint16_t} mv 过压值
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_ov_threshold(uint16_t mv);
+
+/**
+ * @description: 设置欠压值
+ * @param {uint16_t} mv 欠压值
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_uv_threshold(uint16_t mv);
+
+/**
+ * @description: 设置过流值
+ * @param {uint16_t} ma 过流值
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_ocd_threshold(uint16_t ma);
+
+/**
+ * @description: 设置短路电流
+ * @param {uint16_t} ma 短路电流值
+ * @return {*}
+ */
+bq76940_state_e bq76940_set_scd_threshold(uint16_t ma);
+
+/**
+ * @description: 获取故障状态
+ * @return {*}
+ */
+bq76940_err_code_e bq76940_get_fault_status(void);
+
+/**
+ * @description: 清除故障码
+ * @param {uint8_t} mask 故障掩码
+ * @return {*}
+ */
+bq76940_state_e bq76940_clear_fault(uint8_t mask);
+
+/**
+ * @description: 启用充电
+ * @return {*}
+ */
+bq76940_state_e bq76940_enable_charge(void);
+
+/**
+ * @description: 禁用充电
+ * @return {*}
+ */
+bq76940_state_e bq76940_disable_charge(void);
+
+/**
+ * @description: 启用放电
+ * @return {*}
+ */
+bq76940_state_e bq76940_enable_discharge(void);
+
+/**
+ * @description: 禁用放电
+ * @return {*}
+ */
+bq76940_state_e bq76940_disable_discharge(void);
+
+/**
+ * @description: 开始均衡指定电芯
+ * @param {uint8_t} cell_index 电芯索引
+ * @return {*}
+ */
+bq76940_state_e bq76940_start_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
+
+/**
+ * @description: 停止均衡指定电芯
+ * @param {uint8_t} cell_index 电芯索引
+ * @return {*}
+ */
+bq76940_state_e bq76940_stop_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
+
+/* ================================ BQ76940 测试函数 ================================ */
 
 /**
  * @description: 测试函数 负责测试static函数
