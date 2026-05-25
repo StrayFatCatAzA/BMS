@@ -29,9 +29,9 @@ static uart1_rx_callback_t rx_callback = NULL;
 static uart1_tx_callback_t tx_callback = NULL;
 
 /* 内部辅助函数声明 */
-static void bsp_uart1_rx_restart(void);
-static void bsp_uart1_tx_flush(void);
-static void bsp_uart1_rx_push_to_buffer(uint16_t len);
+static void s_uart1_rx_restart(void);
+static void s_uart1_tx_flush(void);
+static void s_uart1_rx_push_to_buffer(uint16_t len);
 
 /* 临界区接口 */
 static void uartENTER_CRITICAL()
@@ -58,7 +58,7 @@ bsp_uart_state_e bsp_uart1_init(void)
     buffer_init(&rx_buffer_handle, rx_buffer, RING_BUF_RX_SIZE);
 
     /* DMA+IDLE 启动 */
-    bsp_uart1_rx_restart();
+    s_uart1_rx_restart();
 
     return UART_STATE_OK;
 }
@@ -78,7 +78,7 @@ bsp_uart_state_e bsp_uart1_send_byte(uint8_t byte)
         return UART_STATE_ERR;
     }
 
-    bsp_uart1_tx_flush();
+    s_uart1_tx_flush();
 
     uartEXIT_CRITICAL();
 
@@ -104,7 +104,8 @@ bsp_uart_state_e bsp_uart1_send_bytes(uint8_t *bytes, uint16_t len)
         return UART_STATE_ERR;
     }
 
-    bsp_uart1_tx_flush();
+    s_uart1_tx_flush();
+    
     uartEXIT_CRITICAL();
 
     return UART_STATE_OK;
@@ -210,7 +211,7 @@ int fputc(int ch, FILE *f)
  * @description: 重启 DMA + IDLE 的中断接收
  * @return {*}
  */
-static void bsp_uart1_rx_restart(void)
+static void s_uart1_rx_restart(void)
 {
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, dma_rx_buf, DMA_RX_BUF_SIZE);
 }
@@ -219,7 +220,7 @@ static void bsp_uart1_rx_restart(void)
  * @description: 将 DMA 缓冲区收到的数据写入环形缓冲区
  * @param len 实际接收的字节数
  */
-static void bsp_uart1_rx_push_to_buffer(uint16_t len)
+static void s_uart1_rx_push_to_buffer(uint16_t len)
 {
     if (len > 0 && len <= DMA_RX_BUF_SIZE)
     {
@@ -231,7 +232,7 @@ static void bsp_uart1_rx_push_to_buffer(uint16_t len)
  * @description: TX 刷新: 若 DMA 空闲且环形缓冲区有数据，启动一次 DMA 发送
  * @return {*}
  */
-static void bsp_uart1_tx_flush(void)
+static void s_uart1_tx_flush(void)
 {
     if (tx_busy)
         return;
@@ -264,10 +265,10 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     if (huart->Instance == USART1 && Size > 0)
     {
         /* 将实际收到的 N 字节写入环形缓冲区 */
-        bsp_uart1_rx_push_to_buffer(Size);
+        s_uart1_rx_push_to_buffer(Size);
 
         /* 重启 DMA + 空闲中断 */
-        bsp_uart1_rx_restart();
+        s_uart1_rx_restart();
 
         /* 回调函数触发 */
         if (rx_callback)
@@ -288,10 +289,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     if (huart->Instance == USART1)
     {
         /* 将全部 256 字节写入环形缓冲区 */
-        bsp_uart1_rx_push_to_buffer(DMA_RX_BUF_SIZE);
+        s_uart1_rx_push_to_buffer(DMA_RX_BUF_SIZE);
 
         /* 重启 DMA + 空闲中断 */
-        bsp_uart1_rx_restart();
+        s_uart1_rx_restart();
 
         /* 回调函数触发 */
         if (rx_callback)
@@ -314,7 +315,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
         tx_busy = 0;
 
         /* 发送 TX 环形缓冲区中的下一块数据 */
-        bsp_uart1_tx_flush();
+        s_uart1_tx_flush();
 
         /* 回调函数触发 */
         if (tx_callback)
