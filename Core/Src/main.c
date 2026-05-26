@@ -131,6 +131,7 @@ int main(void)
   uint16_t cells_voltage[cell_number];
   uint16_t gain = 0;
   int8_t offset = 0;
+  int16_t ex_temp = 0;
 
   bq76940_set_voltage_collection(BQ76940_ENABLE);
   bq76940_set_temperature_collection(BQ76940_ENABLE);
@@ -162,6 +163,10 @@ int main(void)
   printf("cell %d voltage: %d.%03d V\r\n", 7, cells_voltage[6] / 1000, cells_voltage[6] % 1000);
   printf("cell %d voltage: %d.%03d V\r\n", 8, cells_voltage[7] / 1000, cells_voltage[7] % 1000);
   printf("cell %d voltage: %d.%03d V\r\n", 9, cells_voltage[8] / 1000, cells_voltage[8] % 1000);
+
+  bq76940_get_external_temperature(&ex_temp);
+
+  printf("external temmperature: %.1f \r\n", ex_temp * 0.1f);
 
   /* USER CODE END 2 */
 

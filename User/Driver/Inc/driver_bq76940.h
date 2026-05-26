@@ -121,18 +121,18 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t vol_len
 bq76940_state_e bq76940_get_battery_voltage(uint16_t *total_voltage,uint16_t cell_num);
 
 /**
- * @description: bq76940获取NTC温度
- * @param {uint8_t} *NTC_temperature NTC温度
+ * @description: bq76940获取芯片外部温度
+ * @param {uint8_t} *NTC_temperature 芯片外部温度
  * @return {*}
  */
-bq76940_state_e bq76940_get_NTC_temperature(uint8_t *NTC_temperature);
+bq76940_state_e bq76940_get_external_temperature(int16_t *temperature);
 
 /**
- * @description: bq76940获取芯片温度
- * @param {uint8_t} *temperature 芯片温度
+ * @description: bq76940获取芯片内部温度
+ * @param {uint8_t} *temperature 芯片内部温度
  * @return {*}
  */
-bq76940_state_e bq76940_get_die_temperature(uint8_t *temperature);
+bq76940_state_e bq76940_get_internal_temperature(int16_t *temperature);
 
 /**
  * @description: 获取电流值

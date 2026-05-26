@@ -3,6 +3,7 @@
 /* C库头文件 */
 #include <stdio.h>
 #include <stddef.h>
+#include <math.h>
 /* HAL 库头文件 */
 #include "stm32f1xx_hal.h"
 /* BSP 层头文件 */
@@ -21,7 +22,7 @@
 #define BQ76940_WAKE_PIN GPIO_PIN_8
 #define BQ76940_WAKE_PORT GPIOA
 
-/* ================================ BQ76940 寄存器定义 ================================ */
+/* ================================ BQ76940 设备地址定义 ================================ */
 
 #define BQ76940_DEVICE_ADDR 0x08
 
@@ -41,6 +42,12 @@ typedef struct
 /* ================================ 内部静态变量声明 ================================ */
 
 static bq79640_compensation_t s_bq79640_compensation_strcut;
+
+/* 热敏电阻参数 */
+static const float Rp = 10000;       // 热敏电阻25℃标称阻值（10kΩ）
+static const float T2 = 273.15 + 25; // 热敏电阻25℃的绝对温度（开尔文）
+static const float Bx = 3380;        // 热敏电阻的B值（单位：K）
+static const float Ka = 273.15;      // 开尔文与摄氏度的转换常数
 
 /* ================================ IIC 接口函数声明 ================================ */
 
@@ -466,7 +473,7 @@ bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
 
     if (s_bq76940_read_halfword_with_CRC(BQ76940_VC1_HI + (cell_index * 2), &raw) != BQ76940_STATE_OK)
     {
-        LOG_E("Failed to get cell voltage: read reg err\r\n");
+        LOG_E("Failed to get cell voltage: read VC1_HI err\r\n");
 
         return BQ76940_STATE_ERR;
     }
@@ -493,7 +500,7 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_nu
 
     if (count == 0 || voltage == NULL)
     {
-        LOG_E("Failed to get all cell voltage:voltage or cell_num err\r\n");
+        LOG_E("Failed to get all cell voltage: voltage or cell_num err\r\n");
 
         return BQ76940_STATE_ERR;
     }
@@ -502,11 +509,12 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_nu
     {
         if (s_bq76940_read_halfword_with_CRC((uint8_t)(BQ76940_VC1_HI + i * 2 + 1), &raw) != BQ76940_STATE_OK)
         {
-            LOG_E("Failed to get cell voltage: read reg err\r\n");
+            LOG_E("Failed to get cell voltage: read VC1_HI err\r\n");
 
             return BQ76940_STATE_ERR;
         }
 
+        /* Vcell(mV) = ADC × Gain(μV) / 1000 + Offset(mV) */
         mv = ((raw * s_bq79640_compensation_strcut.gain_uv) * 0.001f) + s_bq79640_compensation_strcut.offset_mv;
 
         voltage[i] = (uint16_t)mv;
@@ -521,21 +529,21 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_nu
  * @param {uint16_t} cell_num 电芯数量
  * @return {*}
  */
-bq76940_state_e bq76940_get_battery_voltage(uint16_t *battery_voltage,uint16_t cell_num)
+bq76940_state_e bq76940_get_battery_voltage(uint16_t *battery_voltage, uint16_t cell_num)
 {
     uint16_t raw;
     uint16_t mv;
 
     if (battery_voltage == NULL || cell_num == 0)
     {
-        LOG_E("Failed to get total voltage: null pointer\r\n");
+        LOG_E("Failed to get battery voltage: null pointer\r\n");
 
         return BQ76940_STATE_ERR;
     }
 
     if (s_bq76940_read_halfword_with_CRC(BQ76940_BAT_HI, &raw) != BQ76940_STATE_OK)
     {
-        LOG_E("Failed to get read BAT_HI");
+        LOG_E("Failed to get battery voltage: read BAT_HI err\r\n");
 
         return BQ76940_STATE_ERR;
     }
@@ -548,18 +556,67 @@ bq76940_state_e bq76940_get_battery_voltage(uint16_t *battery_voltage,uint16_t c
 }
 
 /**
- * @description: bq76940获取NTC温度
- * @param {uint8_t} *NTC_temperature NTC温度
+ * @description: bq76940获取芯片外部温度
+ * @param {int16_t} *NTC_temperature 芯片外部温度
  * @return {*}
  */
-bq76940_state_e bq76940_get_NTC_temperature(uint8_t *NTC_temperature);
+bq76940_state_e bq76940_get_external_temperature(int16_t *temperature)
+{
+    uint8_t sys_ctrl1;
+
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to get external temperterature: read TEMP_SEL err\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    /* 判断 TEMP_SEL 位是否为1 */
+    /* TEMP_SEL = 1 外部热敏电阻模式, TEMP_SEL = 0 内部芯片温度模式 */
+    if (sys_ctrl1 & BQ76940_TEMP_SEL_MASK)
+    {
+        uint16_t raw_adc_temp_val = 0; // 从BQ76940读取的原始ADC值
+        float V_tsx = 0;               // 热敏电阻两端的电压值
+        float Rt = 0;                  // 当前热敏电阻的阻值
+        float temp_kelvin = 0;         // 温度的开尔文值
+
+        /* TEMP_SEL = 1 读取TS1寄存器*/
+        if (s_bq76940_read_halfword_with_CRC(BQ76940_TS1_HI, &raw_adc_temp_val) != BQ76940_STATE_OK)
+        {
+            LOG_E("Failed to get external temperterature: read TEMP_SEL err\r\n");
+
+            return BQ76940_STATE_ERR;
+        }
+        /* 数值转换 将热敏电阻值转化为温度值
+         * 公式: VTSX = (ADC in Decimal) x 382 µV/LSB
+         *       RTS = (10,000 × VTSX) ÷ (3.3 – VTSX)
+         */
+        V_tsx = (raw_adc_temp_val * 382) * 0.001f;
+        Rt = (10000 * V_tsx) / (3300.0f - V_tsx);
+        temp_kelvin = 1 / (1 / T2 + (log(Rt / Rp)) / Bx);
+        *temperature = (int16_t)((temp_kelvin - Ka + 0.5f) * 10); // +0.5 的误差矫正
+    }
+    else
+    {
+        /* TEMP_SEL = 0 */
+        LOG_E("Failed to get external temperterature: TEMP_SEL bit err\r\n");
+
+        return BQ76940_STATE_ERR;
+    }
+
+    return BQ76940_STATE_OK;
+}
 
 /**
- * @description: bq76940获取芯片温度
- * @param {uint8_t} *temperature 芯片温度
+ * @description: bq76940获取芯片内部温度
+ * @param {int16_t} *temperature 芯片内部温度
  * @return {*}
  */
-bq76940_state_e bq76940_get_die_temperature(uint8_t *temperature);
+bq76940_state_e bq76940_get_internal_temperature(int16_t *temperature)
+{
+
+    return BQ76940_STATE_OK;
+}
 
 /**
  * @description: 获取电流值
