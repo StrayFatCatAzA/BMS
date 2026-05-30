@@ -370,21 +370,17 @@ bq76940_state_e bq76940_disable_discharge(void);
 
 /**
  * @description: 开始均衡指定电芯
- * @param {uint16_t} cell_index 电芯索引
- * @param {uint8_t} *cell 电池数组指针
- * @param {uint16_t} cells_len 电池数组长度
+ * @param {uint16_t} cell_index 电芯索引 范围:1 - 15
  * @return {*}
  */
-bq76940_state_e bq76940_start_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
+bq76940_state_e bq76940_start_balance(uint16_t cell_index);
 
 /**
  * @description: 停止均衡指定电芯
- * @param {uint16_t} cell_index 电芯索引
- * @param {uint8_t} *cell 电池数组指针
- * @param {uint16_t} cells_len 电池数组长度
+ * @param {uint16_t} cell_index 电芯索引 范围:1 - 15
  * @return {*}
  */
-bq76940_state_e bq76940_stop_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
+bq76940_state_e bq76940_stop_balance(uint16_t cell_inde);
 
 void bq76940_static_test(void);
 

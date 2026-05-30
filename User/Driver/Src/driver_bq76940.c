@@ -4,32 +4,14 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <math.h>
-/* HAL 库头文件 */
-#include "stm32f1xx_hal.h"
-/* BSP 层头文件 */
-#include "bsp_iic.h"
-#include "bsp_uart1.h"
+/* Port 层头文件 (hardware abstraction) */
+#include "driver_bq76940_port.h"
 /* BQ76940 驱动码 头文件 */
 #include "driver_bq76940_reg.h"
-
-/* ================================ BQ76940 引脚定义 ================================ */
-
-#define BQ76940_IIC_SCL_PIN GPIO_PIN_8
-#define BQ76940_IIC_SCL_PORT GPIOB
-#define BQ76940_IIC_SDA_PIN GPIO_PIN_9
-#define BQ76940_IIC_SDA_PORT GPIOB
-
-#define BQ76940_WAKE_PIN GPIO_PIN_8
-#define BQ76940_WAKE_PORT GPIOA
 
 /* ================================ BQ76940 设备地址定义 ================================ */
 
 #define BQ76940_DEVICE_ADDR 0x08
-
-/* ================================ 串口宏定义 ================================ */
-
-#define LOG bsp_uart1_printf
-#define LOG_E bsp_uart1_printf
 
 /* ================================ BQ76940 结构体定义 ================================ */
 
@@ -42,7 +24,11 @@ typedef struct
 
 /* ================================ 内部静态变量声明 ================================ */
 
-static bq79640_compensation_t s_bq79640_compensation_strcut;
+/* BQ76940 校准数据结构体 */
+static bq79640_compensation_t s_bq79640_compensation_struct = {
+    .gain_uv = 0,
+    .offset_mv = 0,
+    .inited = 0};
 
 /* 热敏电阻参数 */
 static const float Rp = 10000;       // 热敏电阻25℃标称阻值（10kΩ）
@@ -50,80 +36,14 @@ static const float T2 = 273.15 + 25; // 热敏电阻25℃的绝对温度（开�
 static const float Bx = 3380;        // 热敏电阻的B值（单位：K）
 static const float Ka = 273.15;      // 开尔文与摄氏度的转换常数
 
-/* ================================ IIC 接口函数声明 ================================ */
-
-static bq76940_state_e s_bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len);
-static bq76940_state_e s_bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len);
-
 /* ================================ 内部静态函数声明 ================================ */
 
-static void s_bq76940_gpio_init(void);
 static bq76940_state_e s_bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t byte);
 static bq76940_state_e s_bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *byte);
 static bq76940_state_e s_bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16_t *halfword);
 static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len);
 
-/* ================================ IIC 接口函数实现 ================================ */
-
-/**
- * @description: bq76940 IIC写入字节函数接口
- * @param {uint8_t} dev_addr 设备地址
- * @param {uint8_t} reg 写入的寄存器地址
- * @param {uint8_t} *data 写入的数据
- * @param {uint16_t} len 数据长度
- * @return {*}
- */
-static bq76940_state_e s_bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
-{
-    if (bsp_iic_soft_mem_write_data(dev_addr, reg_addr, data, len) != IIC_OK)
-        return BQ76940_STATE_ERR;
-
-    return BQ76940_STATE_OK;
-}
-
-/**
- * @description: bq76940 IIC读取字节函数接口
- * @param {uint8_t} dev_addr 设备地址
- * @param {uint8_t} reg 要读取的寄存器地址
- * @param {uint8_t} *data 要读取的数据
- * @param {uint16_t} len 要读取数据长度
- * @return {*}
- */
-static bq76940_state_e s_bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
-{
-    if (bsp_iic_soft_mem_read_data(dev_addr, reg_addr, data, len) != IIC_OK)
-        return BQ76940_STATE_ERR;
-
-    return BQ76940_STATE_OK;
-}
-
 /* ================================ 内部静态函数实现 ================================ */
-
-void s_bq76940_gpio_init(void)
-{
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-
-    /* GPIO 引脚初始化 */
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pin = BQ76940_IIC_SCL_PIN | BQ76940_IIC_SDA_PIN;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(BQ76940_IIC_SCL_PORT, &GPIO_InitStruct);
-
-    HAL_GPIO_WritePin(BQ76940_IIC_SCL_PORT, BQ76940_IIC_SCL_PIN, GPIO_PIN_SET);
-    HAL_GPIO_WritePin(BQ76940_IIC_SDA_PORT, BQ76940_IIC_SDA_PIN, GPIO_PIN_SET);
-
-    /* WAKE 引脚初始化 */
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pin = BQ76940_WAKE_PIN;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(BQ76940_WAKE_PORT, &GPIO_InitStruct);
-
-    HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_RESET);
-}
 
 /**
  * @description: bq76940 向寄存器写字节数据 带CRC校验
@@ -269,17 +189,17 @@ static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len)
 bq76940_state_e bq76940_init(void)
 {
     /* 0. GPIO 初始化 */
-    s_bq76940_gpio_init();
+    s_bq76940_interface_gpio_init();
 
     /* 1. 唤醒芯片 */
     bq76940_wake_up();
 
     /* 2. 等待芯片启动完成 */
-    HAL_Delay(10);
+    s_bq76940_interface_delay_ms(10);
 
     /* 3. 获取 gain和 offest 值 */
-    bq76940_get_calibration(&s_bq79640_compensation_strcut.gain_uv, &s_bq79640_compensation_strcut.offset_mv);
-    s_bq79640_compensation_strcut.inited = 1;
+    bq76940_get_calibration(&s_bq79640_compensation_struct.gain_uv, &s_bq79640_compensation_struct.offset_mv);
+    s_bq79640_compensation_struct.inited = 1;
 
     return BQ76940_STATE_OK;
 }
@@ -317,15 +237,7 @@ bq76940_state_e bq76940_enter_ship(void)
  */
 bq76940_state_e bq76940_wake_up(void)
 {
-    /* 1. 唤醒芯片 */
-    HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_SET);
-    HAL_Delay(100);
-    HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_RESET);
-
-    /* 2. 等待芯片启动完成 */
-    HAL_Delay(10);
-
-    return BQ76940_STATE_OK;
+    return s_bq76940_interface_wake_up();
 }
 
 /**
@@ -482,7 +394,7 @@ bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
     }
 
     /* Vcell(mV) = ADC × Gain(μV) / 1000 + Offset(mV) */
-    mv = ((raw * s_bq79640_compensation_strcut.gain_uv) * 0.001f) + s_bq79640_compensation_strcut.offset_mv;
+    mv = ((raw * s_bq79640_compensation_struct.gain_uv) * 0.001f) + s_bq79640_compensation_struct.offset_mv;
 
     *voltage = mv;
 
@@ -518,7 +430,7 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_nu
         }
 
         /* Vcell(mV) = ADC × Gain(μV) / 1000 + Offset(mV) */
-        mv = ((raw * s_bq79640_compensation_strcut.gain_uv) * 0.001f) + s_bq79640_compensation_strcut.offset_mv;
+        mv = ((raw * s_bq79640_compensation_struct.gain_uv) * 0.001f) + s_bq79640_compensation_struct.offset_mv;
 
         voltage[i] = (uint16_t)mv;
     }
@@ -551,7 +463,7 @@ bq76940_state_e bq76940_get_battery_voltage(uint16_t *battery_voltage, uint16_t 
         return BQ76940_STATE_ERR;
     }
     /* 计算公式 V(BAT) = 4 x GAIN x ADC(cell) + (#Cells x OFFSET) */
-    mv = 4 * s_bq79640_compensation_strcut.gain_uv * raw * 0.001f + (cell_num * s_bq79640_compensation_strcut.offset_mv);
+    mv = 4 * s_bq79640_compensation_struct.gain_uv * raw * 0.001f + (cell_num * s_bq79640_compensation_struct.offset_mv);
 
     *battery_voltage = (uint16_t)mv;
 
@@ -780,7 +692,7 @@ bq76940_state_e bq76940_set_ov_threshold(uint16_t ov, bq76940_ov_threshold_delay
     }
 
     /* 2. 校验ADCGAIN和ADCOFFSET校准值是否已加载 */
-    if (s_bq79640_compensation_strcut.inited != 1)
+    if (s_bq79640_compensation_struct.inited != 1)
     {
         LOG_E("Failed to set ov threshold: calibration not loaded\r\n");
         return BQ76940_STATE_ERR;
@@ -789,7 +701,7 @@ bq76940_state_e bq76940_set_ov_threshold(uint16_t ov, bq76940_ov_threshold_delay
     /* 3. 计算过压跳闸阈值
      *  公式: OV_TRIP_FULL = (OV – ADCOFFSET) ÷ ADCGAIN
      */
-    ov_trip_full = (ov - s_bq79640_compensation_strcut.offset_mv) / (s_bq79640_compensation_strcut.gain_uv * 0.001f);
+    ov_trip_full = (ov - s_bq79640_compensation_struct.offset_mv) / (s_bq79640_compensation_struct.gain_uv * 0.001f);
 
     /* 4. 从完整14位值中移除最高2MSB和最低4LSB，仅保留中间的8位 */
     ov_trip = (ov_trip_full >> 4) & 0xFF;
@@ -848,7 +760,7 @@ bq76940_state_e bq76940_set_uv_threshold(uint16_t uv, bq76940_uv_threshold_delay
     }
 
     /* 2. 校验ADCGAIN和ADCOFFSET校准值是否已加载 */
-    if (s_bq79640_compensation_strcut.inited != 1)
+    if (s_bq79640_compensation_struct.inited != 1)
     {
         LOG_E("Failed to set uv threshold: calibration not loaded\r\n");
         return BQ76940_STATE_ERR;
@@ -857,7 +769,7 @@ bq76940_state_e bq76940_set_uv_threshold(uint16_t uv, bq76940_uv_threshold_delay
     /* 3. 计算欠压跳闸阈值
      *  公式: UV_TRIP_FULL = (UV – ADCOFFSET) ÷ ADCGAIN
      */
-    uv_trip_full = (uv - s_bq79640_compensation_strcut.offset_mv) / (s_bq79640_compensation_strcut.gain_uv * 0.001f);
+    uv_trip_full = (uv - s_bq79640_compensation_struct.offset_mv) / (s_bq79640_compensation_struct.gain_uv * 0.001f);
 
     /* 4. 从完整14位值中移除最高2MSB和最低4LSB，仅保留中间的8位 */
     uv_trip = (uv_trip_full >> 4) & 0xFF;
@@ -1009,7 +921,7 @@ bq76940_state_e bq76940_get_ov_threshold(uint16_t *ov)
     ov_trip_full = 0x2000 | ((uint16_t)ov_trip << 4) | 0x0008;
 
     /* Convert to mV */
-    *ov = (uint16_t)(ov_trip_full * s_bq79640_compensation_strcut.gain_uv * 0.001f + s_bq79640_compensation_strcut.offset_mv + 0.5f);
+    *ov = (uint16_t)(ov_trip_full * s_bq79640_compensation_struct.gain_uv * 0.001f + s_bq79640_compensation_struct.offset_mv + 0.5f);
 
     return BQ76940_STATE_OK;
 }
@@ -1039,7 +951,7 @@ bq76940_state_e bq76940_get_uv_threshold(uint16_t *uv)
     uv_trip_full = 0x1000 | ((uint16_t)uv_trip << 4) | 0x0000;
 
     /* Convert to mV */
-    *uv = (uint16_t)(uv_trip_full * s_bq79640_compensation_strcut.gain_uv * 0.001f + s_bq79640_compensation_strcut.offset_mv + 0.5f);
+    *uv = (uint16_t)(uv_trip_full * s_bq79640_compensation_struct.gain_uv * 0.001f + s_bq79640_compensation_struct.offset_mv + 0.5f);
 
     return BQ76940_STATE_OK;
 }
@@ -1119,7 +1031,6 @@ bq76940_state_e bq76940_get_fault_status(uint8_t *fault_mask)
     *fault_mask = sys_stat_val;
 
     return BQ76940_STATE_OK;
-    
 }
 
 /**
@@ -1237,17 +1148,132 @@ bq76940_state_e bq76940_disable_discharge(void)
 
 /**
  * @description: 开始均衡指定电芯
- * @param {uint8_t} cell_index 电芯索引
+ * @param {uint8_t} cell_index 电芯索引 范围:1 - 15
  * @return {*}
  */
-bq76940_state_e bq76940_start_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
+bq76940_state_e bq76940_start_balance(uint16_t cell_index)
+{
+    uint8_t bal_reg_addr = 0;
+    uint8_t bal_bit_mask = 0;
+    uint8_t cellbal[3] = {0}; /* 寄存器 CELLBAL 1  2  3 值*/
+    uint16_t bal_map = 0;     /* 15-bit bitmap: bit[i]=1 表示电芯 i+1 正在均衡 */
+
+    /* 1. 参数合法性检验 */
+    if (cell_index < 1 || cell_index > 15)
+    {
+        LOG_E("Failed to start balance: cell index err\r\n");
+        return BQ76940_STATE_ERR;
+    }
+
+    /* 2. 相邻电芯保护 不允许相邻两个电芯同时均衡: 读取全部 CELLBAL 寄存器, 构建 bitmap */
+    if (s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL1, &cellbal[0]) != BQ76940_STATE_OK ||
+        s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL2, &cellbal[1]) != BQ76940_STATE_OK ||
+        s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL3, &cellbal[2]) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to start balance: read CELLBAL err\r\n");
+        return BQ76940_STATE_ERR;
+    }
+
+    /* 构建 15-bit bitmap: CELLBAL1[4:0]=电芯 5..1, CELLBAL2[4:0]=电芯 10..6, CELLBAL3[4:0]=电芯 15..11 */
+    bal_map = (uint16_t)(cellbal[0] & 0x1F);        /* cells 1..5 */
+    bal_map |= (uint16_t)(cellbal[1] & 0x1F) << 5;  /* cells 6..10 */
+    bal_map |= (uint16_t)(cellbal[2] & 0x1F) << 10; /* cells 11..15 */
+
+    /* 检查相邻两个电芯是否正在均衡 */
+    if (cell_index > 1 && (bal_map & (1U << (cell_index - 2)))) /* 电芯 N-1 */
+    {
+        LOG_E("Failed to start balance: adjacent cell %d already balancing\r\n", cell_index - 1);
+        return BQ76940_STATE_ERR;
+    }
+    if (cell_index < 15 && (bal_map & (1U << (cell_index)))) /* 电芯 N+1 */
+    {
+        LOG_E("Failed to start balance: adjacent cell %d already balancing\r\n", cell_index + 1);
+        return BQ76940_STATE_ERR;
+    }
+
+    /* 3. 计算目标电芯寄存器和位掩码 */
+    if (cell_index <= 5)
+    {
+        bal_reg_addr = BQ76940_CELLBAL1;
+        bal_bit_mask = 1 << (cell_index - 1);
+    }
+    else if (cell_index <= 10)
+    {
+        bal_reg_addr = BQ76940_CELLBAL2;
+        bal_bit_mask = 1 << (cell_index - 6);
+    }
+    else
+    {
+        bal_reg_addr = BQ76940_CELLBAL3;
+        bal_bit_mask = 1 << (cell_index - 11);
+    }
+
+    cellbal[bal_reg_addr - BQ76940_CELLBAL1] |= bal_bit_mask;
+
+    /* 4. 读-修改-写: 只设置目标电芯 */
+    if (s_bq76940_write_byte_with_CRC(bal_reg_addr,
+                                      cellbal[bal_reg_addr - BQ76940_CELLBAL1]) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to start balance: write reg err\r\n");
+        return BQ76940_STATE_ERR;
+    }
+
+    return BQ76940_STATE_OK;
+}
 
 /**
  * @description: 停止均衡指定电芯
- * @param {uint8_t} cell_index 电芯索引
+ * @param {uint8_t} cell_index 电芯索引 范围:1 - 15
  * @return {*}
  */
-bq76940_state_e bq76940_stop_banlance(uint16_t cell_index, uint8_t *cell, uint16_t cells_len);
+bq76940_state_e bq76940_stop_balance(uint16_t cell_index)
+{
+    uint8_t bal_reg_addr = 0;
+    uint8_t bal_bit_mask = 0;
+    uint8_t bal_val = 0;
+
+    /* 1. 参数合法性检验 */
+    if (cell_index < 1 || cell_index > 15)
+    {
+        LOG_E("Failed to stop balance: cell index err\r\n");
+        return BQ76940_STATE_ERR;
+    }
+
+    /* 2. 计算目标电芯寄存器和位掩码 */
+    if (cell_index <= 5)
+    {
+        bal_reg_addr = BQ76940_CELLBAL1;
+        bal_bit_mask = 1 << (cell_index - 1);
+    }
+    else if (cell_index <= 10)
+    {
+        bal_reg_addr = BQ76940_CELLBAL2;
+        bal_bit_mask = 1 << (cell_index - 6);
+    }
+    else
+    {
+        bal_reg_addr = BQ76940_CELLBAL3;
+        bal_bit_mask = 1 << (cell_index - 11);
+    }
+
+    /* 3. 读-修改-写: 只设置目标电芯 */
+    if (s_bq76940_read_byte_with_CRC(bal_reg_addr, &bal_val) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to stop balance: read reg err\r\n");
+        return BQ76940_STATE_ERR;
+    }
+
+    bal_val &= ~bal_bit_mask;
+
+    /* 写回寄存器 */
+    if (s_bq76940_write_byte_with_CRC(bal_reg_addr, bal_val) != BQ76940_STATE_OK)
+    {
+        LOG_E("Failed to stop balance: write reg err\r\n");
+        return BQ76940_STATE_ERR;
+    }
+
+    return BQ76940_STATE_OK;
+}
 
 /* ================================ BQ76940 测试函数 ================================ */
 
