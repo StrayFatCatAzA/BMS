@@ -70,8 +70,32 @@
 
 /* =========================== SYS_CTRL1 位掩码=========================== */
 
-#define BQ76940_ADC_EN_MASK   0x02
-#define BQ76940_TEMP_SEL_MASK 0x04
+#define BQ76940_ADC_EN_MASK   0x10
+#define BQ76940_TEMP_SEL_MASK 0x08
+#define BQ76940_CHG_ON  (0x01 << 0)  /* D0: 充电使能 */
+#define BQ76940_DSG_ON  (0x01 << 1)  /* D1: 放电使能 */
+/* =========================== PROTECT1 位掩码 =========================== */
+
+#define BQ76940_SCD_DELAY_MASK   (0x03 << 3)  /* [4:3] 短路延迟 */
+#define BQ76940_SCD_DELAY_SHIFT  3
+#define BQ76940_SCD_THRESH_MASK  0x07         /* [2:0] 短路阈值 */
+#define BQ76940_SCD_THRESH_SHIFT 0
+
+/* =========================== PROTECT2 位掩码 =========================== */
+
+#define BQ76940_OCD_DELAY_MASK   (0x07 << 4)  /* [6:4] 过流延迟 */
+#define BQ76940_OCD_DELAY_SHIFT  4
+#define BQ76940_OCD_THRESH_MASK  0x0F         /* [3:0] 过流阈值 */
+#define BQ76940_OCD_THRESH_SHIFT 0
+/* =========================== PROTECT3 位掩码 =========================== */
+
+#define BQ76940_UV_DELAY_MASK   (0x03 << 6)  /* [7:6] 欠压延迟 */
+#define BQ76940_UV_DELAY_SHIFT  6
+
+#define BQ76940_OV_DELAY_MASK   (0x03 << 4)  /* [5:4] 过压延迟 */
+#define BQ76940_OV_DELAY_SHIFT  4
+
+
 
 /* =========================== CC_CFG 位掩码=========================== */
 

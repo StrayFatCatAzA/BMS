@@ -132,10 +132,11 @@ int main(void)
   uint16_t gain = 0;
   int8_t offset = 0;
   int16_t ex_temp = 0;
+  int16_t in_temp = 0;
 
-  bq76940_set_voltage_collection(BQ76940_ENABLE);
-  bq76940_set_temperature_collection(BQ76940_ENABLE);
-  bq76940_set_current_collection(BQ76940_ENABLE);
+  bq76940_set_voltage_collection(BQ76940_FUNC_ENABLE);
+  bq76940_set_temperature_collection(BQ76940_TEMP_MODE_EXTERNAL);
+  bq76940_set_current_collection(BQ76940_FUNC_ENABLE);
 
   bq76940_get_battery_voltage(&battery_voltage, cell_number);
 
@@ -164,9 +165,56 @@ int main(void)
   printf("cell %d voltage: %d.%03d V\r\n", 8, cells_voltage[7] / 1000, cells_voltage[7] % 1000);
   printf("cell %d voltage: %d.%03d V\r\n", 9, cells_voltage[8] / 1000, cells_voltage[8] % 1000);
 
-  bq76940_get_external_temperature(&ex_temp);
+  bq76940_get_external_temperature_ch(1, &ex_temp);
 
-  printf("external temmperature: %.1f \r\n", ex_temp * 0.1f);
+  printf("external temmperature: %.1f C \r\n", ex_temp * 0.1f);
+
+  bq76940_set_temperature_collection(BQ76940_TEMP_MODE_INTERNAL);
+
+  HAL_Delay(2500);
+
+  bq76940_get_internal_temperature(&in_temp);
+
+  printf("internal temmperature: %.1f C \r\n", in_temp * 0.1f);
+
+  int16_t cc_val = 0;
+  int16_t cc_raw_val = 0;
+
+  bq76940_get_current(&cc_val);
+
+  printf("battery current: %0.3fA\r\n", cc_val * 0.001f); // 单位换算 A
+
+  bq76940_get_current_raw(&cc_raw_val);
+
+  printf("battery CC val: %d\r\n", cc_raw_val); // 输出原始值 uV
+
+  /* 设置过压 欠压值 */
+  bq76940_set_ov_threshold(3500, BQ76940_OV_DELAY_1S);
+
+  bq76940_set_uv_threshold(1600, BQ76940_UV_DELAY_1S);
+
+  /* 获取过压 欠压值 */
+  uint16_t ov_threshold = 0;
+  uint16_t uv_threshold = 0;
+  bq76940_get_ov_threshold(&ov_threshold);
+  bq76940_get_uv_threshold(&uv_threshold);
+
+  printf("ov threshold:%d\t uv threshold:%d\r\n", ov_threshold, uv_threshold);
+
+  /* 设置过流 短路电流值 */
+  bq76940_set_ocd_scd_level(BQ76940_OCD_SCD_LOW_LEVEL);
+
+  bq76940_set_ocd_threshold(BQ76940_OCD_VALUE_47MV, BQ76940_OCD_DELAY_640MS);
+
+  bq76940_set_scd_threshold(BQ76940_SCD_VALUE_89MV, BQ76940_SCD_DELAY_400US);
+
+  /* 获取过流 短路电流值 */
+  uint16_t ocd_threshold = 0;
+  uint16_t scd_threshold = 0;
+  bq76940_get_ocd_threshold(&ocd_threshold);
+  bq76940_get_scd_threshold(&scd_threshold);
+
+  printf("ocd threshold:%d\t scd threshold:%d\r\n", ocd_threshold, scd_threshold);
 
   /* USER CODE END 2 */
 
