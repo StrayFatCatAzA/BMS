@@ -1037,7 +1037,7 @@ bq76940_state_e bq76940_get_fault_status(uint8_t *fault_mask)
 
 /**
  * @description: 清除故障码
- * @param {uint8_t} mask 故障掩码
+ * @param {uint8_t} mask 故障掩码 参考@bq76940_err_code_e
  * @return {*}
  */
 bq76940_state_e bq76940_clear_fault(uint8_t mask)
