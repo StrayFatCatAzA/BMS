@@ -207,6 +207,7 @@ bq76940_state_e bq76940_init(void)
 /**
  * @description: bq76940进入低功耗模式
  * @return {*}
+ * @note 退出低功耗模式时 需要延迟至少800ms
  */
 bq76940_state_e bq76940_enter_ship(void)
 {
@@ -300,6 +301,7 @@ bq76940_state_e bq76940_set_current_collection(bq76940_function_state_e state)
  * @description: bq76940设置温度采样模式
  * @param {bq76940_temp_mode_e} mode 温度模式（内部芯片温度 / 外部热敏电阻）
  * @return {*}
+ * @note 使用该函数后 必须延迟至少2000ms便于ADC采样数据稳定
  */
 bq76940_state_e bq76940_set_temperature_collection(bq76940_temp_mode_e mode)
 {

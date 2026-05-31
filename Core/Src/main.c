@@ -197,31 +197,35 @@ int main(void)
   printf("cell %d voltage: %d.%03d V\r\n", 9, cells_voltage[8] / 1000, cells_voltage[8] % 1000);
   printf("\r\n");
 
+  if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_EXTERNAL) == BQ76940_STATE_OK)
+  {
+    printf("temperature EXTERNAL mode switch success\r\n");
+    HAL_Delay(2000);
+  }
+
   for (uint8_t i = 0; i < 5; i++)
   {
+    HAL_Delay(250);
+
     bq76940_get_external_temperature_ch(1, &ex_temp);
 
     printf("external temmperature: %.1f C \r\n", ex_temp * 0.1f);
-
-    HAL_Delay(800);
   }
   printf("\r\n");
 
   if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_INTERNAL) == BQ76940_STATE_OK)
   {
-    printf("temperature mode switch success\r\n");
+    printf("temperature INTERNAL mode switch success\r\n");
+    HAL_Delay(2000);
   }
-  printf("\r\n");
-
-  HAL_Delay(2500);
 
   for (uint8_t i = 0; i < 5; i++)
   {
+    HAL_Delay(250);
+
     bq76940_get_internal_temperature(&in_temp);
 
     printf("internal temmperature: %.1f C \r\n", in_temp * 0.1f);
-
-    HAL_Delay(800);
   }
   printf("\r\n");
 
@@ -290,7 +294,7 @@ int main(void)
   /* 获取错误状态 */
   uint8_t fault_code = 0x00;
   bq76940_get_fault_status(&fault_code);
-  printf("fault status code: %x\r\n", fault_code);
+  printf("fault status code: 0x%x\r\n", fault_code);
   printf("\r\n");
 
   /* 电芯均衡 */
