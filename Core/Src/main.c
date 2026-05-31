@@ -126,7 +126,7 @@ int main(void)
   bsp_uart1_printf("bq76940 init done\r\n");
 
   /* 内部函数测试 */
-  bq76940_static_test();
+  // bq76940_static_test();
 
   const uint16_t cell_number = 9;
   uint16_t battery_voltage = 0;
@@ -136,11 +136,43 @@ int main(void)
   int16_t ex_temp = 0;
   int16_t in_temp = 0;
 
-  bq76940_set_voltage_collection(BQ76940_FUNC_ENABLE);
-  bq76940_set_temperature_collection(BQ76940_TEMP_MODE_EXTERNAL);
-  bq76940_set_current_collection(BQ76940_FUNC_ENABLE);
+  printf("\r\n========== BQ76940 Function Test ==========\r\n\r\n");
 
-  bq76940_get_battery_voltage(&battery_voltage, cell_number);
+  if (bq76940_wake_up() == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 wake up success\r\n");
+  }
+
+  HAL_Delay(1000);
+
+  if (bq76940_get_calibration(&gain, &offset) == BQ76940_STATE_OK)
+  {
+    printf("Q76940 get calibration success\r\n");
+  }
+
+  printf("gain %d offset: %d \r\n", gain, offset);
+  printf("\r\n");
+
+  if (bq76940_set_voltage_collection(BQ76940_FUNC_ENABLE) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set voltage collection success\r\n");
+  }
+
+  if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_EXTERNAL) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set temperature collection success\r\n");
+  }
+
+  if (bq76940_set_current_collection(BQ76940_FUNC_ENABLE) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set current collection success\r\n");
+  }
+  printf("\r\n");
+
+  if (bq76940_get_battery_voltage(&battery_voltage, cell_number) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 get battery voltage success\r\n");
+  }
 
   bq76940_get_cell_voltage(0, &cells_voltage[0]);
   bq76940_get_cell_voltage(1, &cells_voltage[1]);
@@ -151,9 +183,6 @@ int main(void)
   bq76940_get_cell_voltage(10, &cells_voltage[6]);
   bq76940_get_cell_voltage(11, &cells_voltage[7]);
   bq76940_get_cell_voltage(14, &cells_voltage[8]);
-
-  bq76940_get_calibration(&gain, &offset);
-  printf("gain %d offset: %d \r\n", gain, offset);
 
   printf("Battery voltage: %d.%03d V\r\n", battery_voltage / 1000, battery_voltage % 1000);
 
@@ -166,6 +195,7 @@ int main(void)
   printf("cell %d voltage: %d.%03d V\r\n", 7, cells_voltage[6] / 1000, cells_voltage[6] % 1000);
   printf("cell %d voltage: %d.%03d V\r\n", 8, cells_voltage[7] / 1000, cells_voltage[7] % 1000);
   printf("cell %d voltage: %d.%03d V\r\n", 9, cells_voltage[8] / 1000, cells_voltage[8] % 1000);
+  printf("\r\n");
 
   for (uint8_t i = 0; i < 5; i++)
   {
@@ -175,8 +205,13 @@ int main(void)
 
     HAL_Delay(800);
   }
+  printf("\r\n");
 
-  bq76940_set_temperature_collection(BQ76940_TEMP_MODE_INTERNAL);
+  if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_INTERNAL) == BQ76940_STATE_OK)
+  {
+    printf("temperature mode switch success\r\n");
+  }
+  printf("\r\n");
 
   HAL_Delay(2500);
 
@@ -188,6 +223,7 @@ int main(void)
 
     HAL_Delay(800);
   }
+  printf("\r\n");
 
   int16_t cc_val = 0;
   int16_t cc_raw_val = 0;
@@ -199,13 +235,20 @@ int main(void)
   bq76940_get_current_raw(&cc_raw_val);
 
   printf("battery CC val: %d\r\n", cc_raw_val); // 输出原始值 uV
+  printf("\r\n");
 
   /* 设置过压 欠压值 */
-  /* 过压延迟：4s 过压电压 4200mV */
-  bq76940_set_ov_threshold(4200, BQ76940_OV_DELAY_4S);
+  /* 过压延迟: 4s 过压电压: 4200mV */
+  if (bq76940_set_ov_threshold(4200, BQ76940_OV_DELAY_4S) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set ov threshold success\r\n");
+  }
 
-  /* 欠压延迟：4s 欠压电压 3100mV */
-  bq76940_set_uv_threshold(3100, BQ76940_UV_DELAY_4S);
+  /* 欠压延迟: 4s 欠压电压: 3100mV */
+  if (bq76940_set_uv_threshold(3100, BQ76940_UV_DELAY_4S) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set uv threshold success\r\n");
+  }
 
   /* 获取过压 欠压值 */
   uint16_t ov_threshold = 0;
@@ -213,30 +256,42 @@ int main(void)
   bq76940_get_ov_threshold(&ov_threshold);
   bq76940_get_uv_threshold(&uv_threshold);
 
-  printf("ov threshold:%d\t uv threshold:%d\r\n", ov_threshold, uv_threshold);
+  printf("ov threshold:%d mV\t uv threshold:%d mV\r\n", ov_threshold, uv_threshold);
+  printf("\r\n");
 
   /* 设置过流 短路电流值 */
   /* 低等级 */
-  bq76940_set_ocd_scd_level(BQ76940_OCD_SCD_LOW_LEVEL); 
+  if (bq76940_set_ocd_scd_level(BQ76940_OCD_SCD_LOW_LEVEL) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set ocd scd level success\r\n");
+  }
 
-  /* 放电过流延迟：320ms，过流电压：11mV。换算过流电流：11mV/4mΩ=2.75A */
-  bq76940_set_ocd_threshold(BQ76940_OCD_VALUE_11MV, BQ76940_OCD_DELAY_320MS);
+  /* 放电过流延迟：320ms, 过流电压：11mV 换算过流电流: 11mV/4mΩ = 2.75A */
+  if (bq76940_set_ocd_threshold(BQ76940_OCD_VALUE_11MV, BQ76940_OCD_DELAY_320MS) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set ocd threshold success\r\n");
+  }
 
-  /* 放电短路延迟：400us，短路电压：22mV。换算短路电流：22mV/4mΩ=5.5A */
-  bq76940_set_scd_threshold(BQ76940_SCD_VALUE_22MV, BQ76940_SCD_DELAY_400US);
+  /* 放电短路延迟：400us, 短路电压：22mV 换算短路电流: 22mV/4mΩ = 5.5A */
+  if (bq76940_set_scd_threshold(BQ76940_SCD_VALUE_22MV, BQ76940_SCD_DELAY_400US) == BQ76940_STATE_OK)
+  {
+    printf("BQ76940 set scd threshold success\r\n");
+  }
 
   /* 获取过流 短路电流值 */
-  uint16_t ocd_threshold = 0;
-  uint16_t scd_threshold = 0;
+  uint8_t ocd_threshold = 0x00;
+  uint8_t scd_threshold = 0x00;
   bq76940_get_ocd_threshold(&ocd_threshold);
   bq76940_get_scd_threshold(&scd_threshold);
 
-  printf("ocd threshold:%d\t scd threshold:%d\r\n", ocd_threshold, scd_threshold);
+  printf("ocd threshold:0x%x \t scd threshold:0x%x \r\n", ocd_threshold, scd_threshold);
+  printf("\r\n");
 
   /* 获取错误状态 */
   uint8_t fault_code = 0x00;
   bq76940_get_fault_status(&fault_code);
   printf("fault status code: %x\r\n", fault_code);
+  printf("\r\n");
 
   /* 电芯均衡 */
   if (bq76940_start_balance(1) == BQ76940_STATE_OK)

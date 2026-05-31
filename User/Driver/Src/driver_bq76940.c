@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <math.h>
-/* Port 层头文件 (hardware abstraction) */
+/* 接口层头文件 (hardware abstraction) */
 #include "driver_bq76940_port.h"
-/* BQ76940 驱动码 头文件 */
+/* BQ76940 寄存器头文件 */
 #include "driver_bq76940_reg.h"
 
 /* ================================ BQ76940 设备地址定义 ================================ */
@@ -951,21 +951,21 @@ bq76940_state_e bq76940_get_uv_threshold(uint16_t *uv)
     uv_trip_full = 0x1000 | ((uint16_t)uv_trip << 4) | 0x0000;
 
     /* Convert to mV */
-    *uv = (uint16_t)(uv_trip_full * s_bq79640_compensation_struct.gain_uv * 0.001f + s_bq79640_compensation_struct.offset_mv + 0.5f);
+    *uv = (uint16_t)(uv_trip_full * s_bq79640_compensation_struct.gain_uv * 0.001f + s_bq79640_compensation_struct.offset_mv + 0.5f + 1.0f);
 
     return BQ76940_STATE_OK;
 }
 
 /**
- * @description: 获取过流值
- * @param {uint16_t} ma 过流值
+ * @description: bq76940获取过流值
+ * @param {uint8_t} value 过流值 参考@bq76940_ocd_threshold_value_e
  * @return {*}
  */
-bq76940_state_e bq76940_get_ocd_threshold(uint16_t *ma)
+bq76940_state_e bq76940_get_ocd_threshold(uint8_t *value)
 {
     uint8_t protect2_val = 0;
 
-    if (ma == NULL)
+    if (value == NULL)
     {
         return BQ76940_STATE_ERR;
     }
@@ -977,21 +977,21 @@ bq76940_state_e bq76940_get_ocd_threshold(uint16_t *ma)
     }
 
     /* Extract OCD_THRESH [3:0] */
-    *ma = (protect2_val & BQ76940_OCD_THRESH_MASK) >> BQ76940_OCD_THRESH_SHIFT;
+    *value = (protect2_val & BQ76940_OCD_THRESH_MASK) >> BQ76940_OCD_THRESH_SHIFT;
 
     return BQ76940_STATE_OK;
 }
 
 /**
- * @description: 获取短路电流
- * @param {uint16_t} ma 短路电流值
+ * @description: bq76940获取短路电流
+ * @param {uint8_t} value 短路电流值 参考@bq76940_scd_threshold_value_e
  * @return {*}
  */
-bq76940_state_e bq76940_get_scd_threshold(uint16_t *ma)
+bq76940_state_e bq76940_get_scd_threshold(uint8_t *value)
 {
     uint8_t protect1_val = 0;
 
-    if (ma == NULL)
+    if (value == NULL)
     {
         return BQ76940_STATE_ERR;
     }
@@ -1003,7 +1003,7 @@ bq76940_state_e bq76940_get_scd_threshold(uint16_t *ma)
     }
 
     /* Extract SCD_THRESH [2:0] */
-    *ma = (protect1_val & BQ76940_SCD_THRESH_MASK) >> BQ76940_SCD_THRESH_SHIFT;
+    *value = (protect1_val & BQ76940_SCD_THRESH_MASK) >> BQ76940_SCD_THRESH_SHIFT;
 
     return BQ76940_STATE_OK;
 }

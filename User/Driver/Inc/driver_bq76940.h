@@ -319,17 +319,17 @@ bq76940_state_e bq76940_get_uv_threshold(uint16_t *uv);
 
 /**
  * @description: 获取过流值
- * @param {uint16_t} ma 过流值
+ * @param {uint8_t} value 过流值 
  * @return {*}
  */
-bq76940_state_e bq76940_get_ocd_threshold(uint16_t *ma);
+bq76940_state_e bq76940_get_ocd_threshold(uint8_t *value);
 
 /**
  * @description: 获取短路电流
- * @param {uint16_t} ma 短路电流值
+ * @param {uint8_t} value 短路电流值
  * @return {*}
  */
-bq76940_state_e bq76940_get_scd_threshold(uint16_t *ma);
+bq76940_state_e bq76940_get_scd_threshold(uint8_t *value);
 
 /**
  * @description: 获取故障状态
