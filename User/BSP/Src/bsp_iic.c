@@ -1,7 +1,8 @@
 ﻿#include "bsp_iic.h"
 
 #include "stm32f1xx_hal.h"
-#include "FreeRTOS.h"
+
+#include "cmsis_os2.h"
 
 /* ========================== 引脚配置 ========================== */
 
@@ -44,7 +45,7 @@ static void s_iicEXIT_CRITICAL(void);
  */
 static void s_iicENTER_CRITICAL(void)
 {
-    // portENTER_CRITICAL();
+    osKernelLock();
 }
 
 /**
@@ -53,7 +54,7 @@ static void s_iicENTER_CRITICAL(void)
  */
 static void s_iicEXIT_CRITICAL(void)
 {
-    // portEXIT_CRITICAL();
+    osKernelUnlock();
 }
 
 /* ========================== 延时函数 ========================== */
