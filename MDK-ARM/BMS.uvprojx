@@ -788,6 +788,33 @@
         </Group>
         <Group>
           <GroupName>User/Application</GroupName>
+          <Files>
+            <File>
+              <FileName>app_balance.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_balance.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_can.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_can.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_monitor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_monitor.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_bq76940_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_bq76940_core.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_task_init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_task_init.c</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>::CMSIS</GroupName>
