@@ -188,16 +188,19 @@ static uint8_t s_bq76940_crc(uint8_t *data, uint16_t len)
  */
 bq76940_state_e bq76940_init(void)
 {
-    /* 0. GPIO 初始化 */
+    /* 0. IIC初始化 */
+    s_bq76940_interface_iic_init();
+
+    /* 1. GPIO 初始化 */
     s_bq76940_interface_gpio_init();
 
-    /* 1. 唤醒芯片 */
+    /* 2. 唤醒芯片 */
     bq76940_wake_up();
 
-    /* 2. 等待芯片启动完成 */
+    /* 3. 等待芯片启动完成 */
     s_bq76940_interface_delay_ms(10);
 
-    /* 3. 获取 gain和 offest 值 */
+    /* 4. 获取 gain和 offest 值 */
     bq76940_get_calibration(&s_bq79640_compensation_struct.gain_uv, &s_bq79640_compensation_struct.offset_mv);
     s_bq79640_compensation_struct.inited = 1;
 

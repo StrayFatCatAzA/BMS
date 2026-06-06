@@ -6,15 +6,23 @@
 
 /* ================================ BQ76940 引脚定义 ================================ */
 
-#define BQ76940_IIC_SCL_PIN    GPIO_PIN_8
-#define BQ76940_IIC_SCL_PORT   GPIOB
-#define BQ76940_IIC_SDA_PIN    GPIO_PIN_9
-#define BQ76940_IIC_SDA_PORT   GPIOB
+#define BQ76940_IIC_SCL_PIN GPIO_PIN_8
+#define BQ76940_IIC_SCL_PORT GPIOB
+#define BQ76940_IIC_SDA_PIN GPIO_PIN_9
+#define BQ76940_IIC_SDA_PORT GPIOB
 
-#define BQ76940_WAKE_PIN       GPIO_PIN_8
-#define BQ76940_WAKE_PORT      GPIOA
+#define BQ76940_WAKE_PIN GPIO_PIN_8
+#define BQ76940_WAKE_PORT GPIOA
 
 /* ================================ I2C 接口 ================================ */
+
+bq76940_state_e s_bq76940_interface_iic_init(void)
+{
+    if (bsp_iic_soft_init() != IIC_OK)
+        return BQ76940_STATE_ERR;
+
+    return BQ76940_STATE_OK;
+}
 
 bq76940_state_e s_bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
 {
@@ -42,20 +50,20 @@ void s_bq76940_interface_gpio_init(void)
     GPIO_InitTypeDef GPIO_InitStruct = {0};
 
     /* I2C SCL/SDA: open-drain output */
-    GPIO_InitStruct.Mode   = GPIO_MODE_OUTPUT_OD;
-    GPIO_InitStruct.Pin    = BQ76940_IIC_SCL_PIN | BQ76940_IIC_SDA_PIN;
-    GPIO_InitStruct.Pull   = GPIO_NOPULL;
-    GPIO_InitStruct.Speed  = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Pin = BQ76940_IIC_SCL_PIN | BQ76940_IIC_SDA_PIN;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(BQ76940_IIC_SCL_PORT, &GPIO_InitStruct);
 
     HAL_GPIO_WritePin(BQ76940_IIC_SCL_PORT, BQ76940_IIC_SCL_PIN, GPIO_PIN_SET);
     HAL_GPIO_WritePin(BQ76940_IIC_SDA_PORT, BQ76940_IIC_SDA_PIN, GPIO_PIN_SET);
 
     /* WAKE pin: push-pull output */
-    GPIO_InitStruct.Mode   = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pin    = BQ76940_WAKE_PIN;
-    GPIO_InitStruct.Pull   = GPIO_NOPULL;
-    GPIO_InitStruct.Speed  = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pin = BQ76940_WAKE_PIN;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
     HAL_GPIO_Init(BQ76940_WAKE_PORT, &GPIO_InitStruct);
 
     HAL_GPIO_WritePin(BQ76940_WAKE_PORT, BQ76940_WAKE_PIN, GPIO_PIN_RESET);

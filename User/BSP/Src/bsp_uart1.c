@@ -3,9 +3,12 @@
 #include <stdio.h>
 #include <stdarg.h>
 
+/* HAL库UART1 */
 #include "usart.h"
+/* 环形缓冲区 */
 #include "ring_buffer.h"
-#include "FreeRTOS.h"
+/* RTOS接口 */
+#include "cmsis_os2.h"
 
 /* 发送 DMA设置 */
 #define DMA_TX_BUF_SIZE 256
@@ -36,12 +39,12 @@ static void s_uart1_rx_push_to_buffer(uint16_t len);
 /* 临界区接口 */
 static void uartENTER_CRITICAL()
 {
-    // portENTER_CRITICAL();
+    osKernelLock();
 }
 
 static void uartEXIT_CRITICAL()
 {
-    // portEXIT_CRITICAL();
+    osKernelUnlock();
 }
 
 /**
