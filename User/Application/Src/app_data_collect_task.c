@@ -16,33 +16,70 @@
 #define TAG "data collect"
 
 /* 数据错误位定义 */
-#define CHIP_TEMP_DATA_ERR 0x01
-#define BATTERY_TEMP_DATA_ERR 0x02
-#define BATTERY_CURRENT_DATA_ERR 0x04
-#define BATTERY_VOLTAGE_DATA_ERR 0x08
-#define BATTERY_CELL_VOLTAGE_DATA_ERR 0x10
+#define CHIP_TEMP_DATA_ERR 0x01            // 芯片温度读取错误
+#define BATTERY_TEMP_DATA_ERR 0x02         // 电池温度数据读取错误
+#define BATTERY_CURRENT_DATA_ERR 0x04      // 电池电流读取错误
+#define BATTERY_VOLTAGE_DATA_ERR 0x08      // 电池电压读取错误
+#define BATTERY_CELL_VOLTAGE_DATA_ERR 0x10 // 电芯电压读取错误
+#define CHIP_STAT_DATA_ERR 0x20            // 芯片状态读取错误
+
+/* 数据采集周期 1000ms */
+#define DATA_COLLECT_PERIOD 1000
 
 /* 数据采集任务 */
 osThreadId_t data_collect_task_handle;
 const osThreadAttr_t bq76940_core_task_attributes = {
     .name = "bq76940_core_task_handle",
-    .stack_size = 128 * 4,
+    .stack_size = 256 * 4, // 1024 Byte
     .priority = (osPriority_t)osPriorityNormal5,
 };
 
 /* 静态函数声明 */
 static void s_battery_data_calc(app_battery_data_t *data);
 static void s_battery_data_print(app_battery_data_t *data_struct);
+static void s_battery_fault_parse(uint8_t fault_code, app_battery_data_t *data);
+
 
 /* 静态变量声明 */
-static uint8_t s_data_err_status;
+static uint16_t s_data_collect_err_code; // 数据读取错误码
 
-/* 电芯索引图 */
+/* 电芯索引图 对应实际电芯位置 */
 static const uint8_t s_cell_id_index_map[APP_CELL_NUM] = {
     1, 2,
     5, 6, 7,
     10, 11, 12,
     15};
+
+/**
+ * @description: 解析BQ76940故障状态码，置入battery_alert
+ * @param {uint8_t} fault_code BQ76940故障码
+ * @param {app_battery_data_t} *data 电池数据结构体指针
+ * @return {*}
+ */
+static void s_battery_fault_parse(uint8_t fault_code, app_battery_data_t *data)
+{
+    if (fault_code & BQ76940_ERR_CODE_DEVICE_XREADY)
+        data->battery_alert |= APP_SYS_STAT_DEVICE_XREADY;
+
+    if (fault_code & BQ76940_ERR_CODE_OVRD_ALERT)
+        data->battery_alert |= APP_SYS_STAT_OVER_ALERT;
+
+    /* 过压 */
+    if (fault_code & BQ76940_ERR_CODE_OV)
+        data->battery_alert |= APP_SYS_STAT_OV;
+
+    /* 欠压 */
+    if (fault_code & BQ76940_ERR_CODE_UV)
+        data->battery_alert |= APP_SYS_STAT_UV;
+
+    /* 过流 */
+    if (fault_code & BQ76940_ERR_CODE_OCD)
+        data->battery_alert |= APP_SYS_STAT_OCD;
+
+    /* 短路 */
+    if (fault_code & BQ76940_ERR_CODE_SCD)
+        data->battery_alert |= APP_SYS_STAT_SCD;
+}
 
 /**
  * @description: 电池数据采集任务函数
@@ -51,33 +88,35 @@ static const uint8_t s_cell_id_index_map[APP_CELL_NUM] = {
  */
 void app_data_collect_task(void *argument)
 {
-    app_battery_data_t app_battery_data_tmp;
+    app_battery_data_t app_battery_data_tmp;          // 电池数据缓存
+    uint32_t next_wake_time = osKernelGetTickCount(); // 下一次读取时间 初始化为任务开始时间
 
     for (;;)
     {
+        s_data_collect_err_code = 0x00;
         /* 获取芯片温度 */
         if (bq76940_get_internal_temperature(&app_battery_data_tmp.chip_temp) != BQ76940_STATE_OK)
         {
             DEBUG_ERROR(TAG, "get chip temperature err\r\n");
-            s_data_err_status |= CHIP_TEMP_DATA_ERR;
+            s_data_collect_err_code |= CHIP_TEMP_DATA_ERR;
         }
         /* 获取电池温度 */
         if (bq76940_get_external_temperature_ch(1, &app_battery_data_tmp.battery_temp) != BQ76940_STATE_OK)
         {
             DEBUG_ERROR(TAG, "get battery temperature err\r\n");
-            s_data_err_status |= BATTERY_TEMP_DATA_ERR;
+            s_data_collect_err_code |= BATTERY_TEMP_DATA_ERR;
         }
         /* 获取当前电池电流 */
         if (bq76940_get_current(&app_battery_data_tmp.current_ma) != BQ76940_STATE_OK)
         {
             DEBUG_ERROR(TAG, "get battery current err\r\n");
-            s_data_err_status |= BATTERY_CURRENT_DATA_ERR;
+            s_data_collect_err_code |= BATTERY_CURRENT_DATA_ERR;
         }
         /* 获取电池电压 */
         if (bq76940_get_battery_voltage(&app_battery_data_tmp.battery_voltage_mv, APP_CELL_NUM) != BQ76940_STATE_OK)
         {
             DEBUG_ERROR(TAG, "get battery voltage err\r\n");
-            s_data_err_status |= BATTERY_VOLTAGE_DATA_ERR;
+            s_data_collect_err_code |= BATTERY_VOLTAGE_DATA_ERR;
         }
         /* 获取电芯电压 */
         for (uint8_t i = 0; i < APP_CELL_NUM; i++)
@@ -85,16 +124,29 @@ void app_data_collect_task(void *argument)
             if (bq76940_get_cell_voltage(s_cell_id_index_map[i], &app_battery_data_tmp.cell_voltage_mv[i]) != BQ76940_STATE_OK)
             {
                 DEBUG_ERROR(TAG, "get cell [%d] voltage err\r\n", i);
-                s_data_err_status |= BATTERY_CELL_VOLTAGE_DATA_ERR;
+                s_data_collect_err_code |= BATTERY_CELL_VOLTAGE_DATA_ERR;
                 break;
             }
         }
 
-        /* 检查数据是否正确 */
-        if (s_data_err_status != 0)
+        /* 获取芯片状态 */
+        uint8_t fault_code = 0x00;
+        if (bq76940_get_fault_status(&fault_code) != BQ76940_STATE_OK)
         {
-            DEBUG_ERROR(TAG, "get data err, code:0x%02X", s_data_err_status);
-            continue;
+            DEBUG_ERROR(TAG, "get chip status err\r\n");
+            s_data_collect_err_code |= CHIP_STAT_DATA_ERR;
+        }
+        else
+        {
+            /* 提前错误码 */
+            s_battery_fault_parse(fault_code, &app_battery_data_tmp);
+        }
+
+        /* 检查数据是否正确 */
+        if (s_data_collect_err_code != 0)
+        {
+            DEBUG_ERROR(TAG, "get data err, code:0x%02X", s_data_collect_err_code);
+            continue; // 跳过本次循环
         }
 
         /* 计算电压 最大 最小 平均值 */
@@ -107,14 +159,16 @@ void app_data_collect_task(void *argument)
         }
         else
         {
+            /* 数据打印 */
             s_battery_data_print(&app_battery_data_tmp);
         }
 
         /* 清空数据缓存 */
         memset(&app_battery_data_tmp, 0, sizeof(app_battery_data_tmp));
-        
-        /* 延迟250ms */
-        osDelay(250);
+
+        /* 数据采集延迟 */
+        next_wake_time += DATA_COLLECT_PERIOD; // 计算下次读取时间
+        osDelayUntil(next_wake_time);
     }
 }
 

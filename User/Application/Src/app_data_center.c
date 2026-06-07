@@ -14,6 +14,8 @@ const osMutexAttr_t battery_data_attributes = {
 
 /* 电池数据结构体 */
 static app_battery_data_t s_battery_data_struct = {
+    .battery_alert = APP_SYS_STAT_NONE,
+
     .battery_temp = 0,
     .chip_temp = 0,
     .current_ma = 0,
@@ -75,7 +77,7 @@ app_data_status_e app_data_center_get_battery_data(app_battery_data_t *data)
         return APP_DATA_TIMEOUT;
     }
 
-    /* 结构体负责 */
+    /* 结构体赋值 */
     *data = s_battery_data_struct;
 
     osMutexRelease(battery_data_mutex);

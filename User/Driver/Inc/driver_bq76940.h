@@ -333,6 +333,7 @@ bq76940_state_e bq76940_get_scd_threshold(uint8_t *value);
 
 /**
  * @description: 获取故障状态
+ * @param {uint8_t} *fault_mask 故障码
  * @return {*}
  */
 bq76940_state_e bq76940_get_fault_status(uint8_t *fault_mask);
