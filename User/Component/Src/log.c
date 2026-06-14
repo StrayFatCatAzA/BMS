@@ -1,26 +1,33 @@
-﻿#include "debug.h"
+#include "log.h"
 
 #include <stdarg.h>
 #include <string.h>
 
+/* RTOS */
+#include "cmsis_os2.h"
+
+/* 串口驱动 */
 #include "bsp_uart1.h"
+
+/* 互斥锁管理 */
+#include "app_mutex_manager.h"
 
 /**
  * @description: 等级标签字符串匹配
  * @param {debug_level_e} level 日志等级
  * @return {*}
  */
-static const char *s_level_str(debug_level_e level)
+static const char *s_level_str(LOG_level_e level)
 {
     switch (level)
     {
-    case DEBUG_LEVEL_ERROR:
+    case LOG_LEVEL_ERROR:
         return "ERROR";
-    case DEBUG_LEVEL_WARN:
+    case LOG_LEVEL_WARN:
         return "WARN ";
-    case DEBUG_LEVEL_INFO:
+    case LOG_LEVEL_INFO:
         return "INFO ";
-    case DEBUG_LEVEL_DEBUG:
+    case LOG_LEVEL_DEBUG:
         return "DEBUG";
     default:
         return "?????";
@@ -46,17 +53,61 @@ static const char *s_basename(const char *path)
     return p;
 }
 
+/**
+ * @description: 日志打印接口函数
+ * @param {char} *buf
+ * @return {*}
+ */
+static void s_log_interface_print(const char *buf)
+{
+    if (osMutexAcquire(uart1_mutex, 200) != osOK)
+    {
+        return;
+    }
+
+    bsp_uart1_printf("%s", buf);
+
+    osMutexRelease(uart1_mutex);
+}
+
+/**
+ * @description: 日志打印初始化
+ * @return {*}
+ */
+void log_init(void)
+{
+    /* 初始化UART1 */
+    bsp_uart1_init();
+}
+
+/**
+ * @description: 通用格式化日志输出
+ * @param {char *} fmt 格式化字符串
+ * @param {...} ... 可变参数
+ * @return {*}
+ */
+void LOG_PRINTF(const char *fmt, ...)
+{
+    char buf[256];
+
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    s_log_interface_print(buf);
+}
 
 /**
  * @description:  统一日志输出
- * @param {debug_level_e} level 日志等级
+ * @param {LOG_level_e} level 日志等级
  * @param {char} *tag 日志标记
  * @param {char} *file 目标文件
  * @param {int} line 目标行号
  * @param {char} *fmt 格式化字符串
  * @return {*}
  */
-void debug_output(debug_level_e level, const char *tag, const char *file, int line, const char *fmt, ...)
+void log_output(LOG_level_e level, const char *tag, const char *file, int line, const char *fmt, ...)
 {
     char buf[256];
     int pos = 0;
@@ -65,7 +116,7 @@ void debug_output(debug_level_e level, const char *tag, const char *file, int li
     pos += snprintf(buf + pos, sizeof(buf) - pos, "%s ", s_level_str(level));
 
     /* 模块标签 */
-#if DEBUG_TAG_ENABLE
+#if LOG_TAG_ENABLE
     if (tag != NULL && tag[0] != '\0')
     {
         pos += snprintf(buf + pos, sizeof(buf) - pos, "[%s] ", tag);
@@ -85,13 +136,11 @@ void debug_output(debug_level_e level, const char *tag, const char *file, int li
         va_end(args);
     }
 
-    /* 追加换行 */
+    /* 追加结束标志位 */
     if (pos < (int)(sizeof(buf) - 2))
     {
-        buf[pos++] = '\r';
-        buf[pos++] = '\n';
         buf[pos] = '\0';
     }
 
-    bsp_uart1_printf("%s", buf);
+    s_log_interface_print(buf);
 }

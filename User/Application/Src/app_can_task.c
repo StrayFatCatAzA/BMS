@@ -1,10 +1,10 @@
 #include "app_can_task.h"
 
-/* 调试文件 */
-#include "debug.h"
 /* RTOS */
 #include "cmsis_os2.h"
 
+/* debug 头 */
+#include "log.h"
 #define TAG "can task"
 
 /* CAN通信任务 */
@@ -38,7 +38,7 @@ void app_can_task_init(void)
     if (can_task_handle == NULL)
     {
         /* 任务初始化失败 */
-        DEBUG_ERROR(TAG, "can task init err\r\n");
+        LOG_ERROR(TAG, "can task init err\r\n");
         return;
     }
 }

@@ -19,25 +19,25 @@
 bq76940_state_e s_bq76940_interface_iic_init(void)
 {
     if (bsp_iic_soft_init() != IIC_OK)
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 bq76940_state_e s_bq76940_interface_write_byte(uint8_t dev_addr, uint8_t reg_addr, const uint8_t *data, uint16_t len)
 {
     if (bsp_iic_soft_mem_write_data(dev_addr, reg_addr, data, len) != IIC_OK)
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 bq76940_state_e s_bq76940_interface_read_byte(uint8_t dev_addr, uint8_t reg_addr, uint8_t *data, uint16_t len)
 {
     if (bsp_iic_soft_mem_read_data(dev_addr, reg_addr, data, len) != IIC_OK)
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /* ================================ GPIO 初始化函数接口 ================================ */
@@ -79,7 +79,7 @@ bq76940_state_e s_bq76940_interface_wake_up(void)
 
     HAL_Delay(10);
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /* ================================ 延迟函数接口 ================================ */
@@ -87,19 +87,4 @@ bq76940_state_e s_bq76940_interface_wake_up(void)
 void s_bq76940_interface_delay_ms(uint32_t ms)
 {
     HAL_Delay(ms);
-}
-
-/* ================================ 日志输出接口 ================================ */
-
-#include <stdarg.h>
-#include <stdio.h>
-
-void s_bq76940_interface_log(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    char buf[255];
-    vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-    bsp_uart1_printf("%s", buf);
 }

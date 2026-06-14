@@ -19,8 +19,12 @@ typedef enum
  */
 typedef enum
 {
-    BQ76940_STATE_OK = 0, /* 成功 */
-    BQ76940_STATE_ERR     /* 失败 */
+    BQ76940_OK = 0,        /* 成功 */
+    BQ76940_ERR,           /* 失败 */
+    BQ76940_WRITE_REG_ERR, /* 写寄存器错误 */
+    BQ76940_READ_REG_ERR,  /* 读寄存器错误 */
+    BQ76940_CRC_ERR,       /* CRC校验错误 */
+    BQ76940_PARAM_ERR      /* 参数不合法 */
 } bq76940_state_e;
 
 /**
@@ -319,7 +323,7 @@ bq76940_state_e bq76940_get_uv_threshold(uint16_t *uv);
 
 /**
  * @description: 获取过流值
- * @param {uint8_t} value 过流值 
+ * @param {uint8_t} value 过流值
  * @return {*}
  */
 bq76940_state_e bq76940_get_ocd_threshold(uint8_t *value);

@@ -101,12 +101,13 @@ bsp_uart_state_e bsp_uart1_send_bytes(uint8_t *bytes, uint16_t len)
         return UART_STATE_ERR;
     }
     uartENTER_CRITICAL();
+    /* 写入环形缓冲区 */
     if (buffer_write_data(&tx_buffer_handle, bytes, len) == 0)
     {
         uartEXIT_CRITICAL();
         return UART_STATE_ERR;
     }
-
+    /* 启动发送 */
     s_uart1_tx_flush();
     
     uartEXIT_CRITICAL();
@@ -189,6 +190,7 @@ void bsp_uart1_printf(const char *format, ...)
     va_start(args, format);
     int len = vsnprintf(buf, sizeof(buf), format, args);
 
+    /* 检查长度 */
     if (len > 0)
     {
         bsp_uart1_send_bytes((uint8_t *)buf, (len < (int)sizeof(buf) ? len : (int)sizeof(buf) - 1));

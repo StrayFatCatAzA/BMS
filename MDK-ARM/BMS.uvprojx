@@ -336,7 +336,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F103xB</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include;../User/BSP/Inc;../User/Component/Inc;..\User\Driver\Inc;..\User\Application\Inc</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc;../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy;../Middlewares/Third_Party/FreeRTOS/Source/include;../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2;../Middlewares/Third_Party/FreeRTOS/Source/portable/RVDS/ARM_CM3;../Drivers/CMSIS/Device/ST/STM32F1xx/Include;../Drivers/CMSIS/Include;../User/BSP/Inc;../User/Component/Inc;../User/Driver/Inc;../User/Application/Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -766,14 +766,14 @@
               <FilePath>..\User\Driver\Src\driver_bq76940.c</FilePath>
             </File>
             <File>
-              <FileName>driver_led.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Driver\Src\driver_led.c</FilePath>
-            </File>
-            <File>
               <FileName>driver_bq76940_port.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\User\Driver\Src\driver_bq76940_port.c</FilePath>
+            </File>
+            <File>
+              <FileName>driver_led.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Driver\Src\driver_led.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -786,9 +786,9 @@
               <FilePath>..\User\Component\Src\ring_buffer.c</FilePath>
             </File>
             <File>
-              <FileName>debug.c</FileName>
+              <FileName>log.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\User\Component\Src\debug.c</FilePath>
+              <FilePath>..\User\Component\Src\log.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -801,24 +801,14 @@
               <FilePath>..\User\Application\Src\app_task_init.c</FilePath>
             </File>
             <File>
-              <FileName>app_balance_task.c</FileName>
+              <FileName>app_sample_task.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\User\Application\Src\app_balance_task.c</FilePath>
+              <FilePath>..\User\Application\Src\app_sample_task.c</FilePath>
             </File>
             <File>
-              <FileName>app_battery_calc_task.c</FileName>
+              <FileName>app_monitor_task.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\User\Application\Src\app_battery_calc_task.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_can_task.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Application\Src\app_can_task.c</FilePath>
-            </File>
-            <File>
-              <FileName>app_data_collect_task.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\User\Application\Src\app_data_collect_task.c</FilePath>
+              <FilePath>..\User\Application\Src\app_monitor_task.c</FilePath>
             </File>
             <File>
               <FileName>app_protect_task.c</FileName>
@@ -826,9 +816,29 @@
               <FilePath>..\User\Application\Src\app_protect_task.c</FilePath>
             </File>
             <File>
-              <FileName>app_data_center.c</FileName>
+              <FileName>app_sox_task.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\User\Application\Src\app_data_center.c</FilePath>
+              <FilePath>..\User\Application\Src\app_sox_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_balance_task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_balance_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_can_task.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_can_task.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_data_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_data_manager.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_mutex_manager.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\User\Application\Src\app_mutex_manager.c</FilePath>
             </File>
           </Files>
         </Group>

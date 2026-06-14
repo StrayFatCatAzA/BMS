@@ -1,23 +1,30 @@
 #include "app_task_init.h"
+
 /* RTOS头 */
 #include "cmsis_os2.h"
+
 /* BSP层 */
 #include "bsp_can.h"
 #include "bsp_iic.h"
 #include "bsp_uart1.h"
+
 /* Driver层 */
 #include "driver_led.h"
 #include "driver_bq76940.h"
+
 /* 任务层 */
-#include "app_data_collect_task.h"
+#include "app_sample_task.h"
+#include "app_monitor_task.h"
 #include "app_balance_task.h"
 #include "app_protect_task.h"
-#include "app_battery_calc_task.h"
+#include "app_sox_task.h"
 #include "app_can_task.h"
-#include "app_data_center.h"
+#include "app_data_manager.h"
+#include "app_mutex_manager.h"
+
 /* debug */
-#include "debug.h"
-#define TAG "APP_Init"
+#include "log.h"
+#define TAG "APP Init"
 
 /* ================================= 内部静态函数声明 ================================= */
 
@@ -32,21 +39,27 @@ void app_task_init(void)
   /* 2. BQ76940 配置 */
   s_bq76940_config();
 
-  /* 3. 任务初始化 */
-
   osKernelLock(); // 初始化开始 锁定调度器 不允许切换
-  
-  app_data_center_init(); // 数据中心初始化
 
-  app_data_collect_task_init(); // 电池数据采集任务初始化
+  /* 互斥锁初始化 */
+  app_mutex_manager_init();
+
+  /* 数据中心初始化 */
+  app_data_manager_init();
+
+  /* 4. 任务初始化 */
+
+  app_sample_task_init(); // 电池采样任务初始化
+
+  app_monitor_task_init(); // 电池监控任务初始化
 
   app_protect_task_init(); // 电池保护任务初始化
 
-  app_battery_calc_task_init(); // 电池容量计算任务初始化
+  // app_sox_task_init(); // 电池容量计算任务初始化
 
-  app_balance_task_init(); // 电池均衡任务初始化
+  // app_balance_task_init(); // 电池均衡任务初始化
 
-  app_can_task_init(); // CAN 通信任务初始化
+  // app_can_task_init(); // CAN 通信任务初始化
 
   osKernelUnlock(); // 初始化完成 解锁调度器
 }
@@ -59,8 +72,9 @@ static void s_hardware_init(void)
 {
   /* BSP层初始化 */
   bsp_uart1_init();
+  bsp_iic_soft_init();
   // CAN
-
+  
   /* Driver层初始化 */
   drv_led_init();
   bq76940_init();

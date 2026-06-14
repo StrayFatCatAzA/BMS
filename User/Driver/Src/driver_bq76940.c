@@ -66,14 +66,12 @@ static bq76940_state_e s_bq76940_write_byte_with_CRC(uint8_t reg_addr, uint8_t b
     send_buf[0] = byte;
     send_buf[1] = crc;
 
-    if (s_bq76940_interface_write_byte(BQ76940_DEVICE_ADDR, reg_addr, send_buf, 2) != BQ76940_STATE_OK)
+    if (s_bq76940_interface_write_byte(BQ76940_DEVICE_ADDR, reg_addr, send_buf, 2) != BQ76940_OK)
     {
-        LOG_E("Failed to write I2C data\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -88,29 +86,27 @@ static bq76940_state_e s_bq76940_read_byte_with_CRC(uint8_t reg_addr, uint8_t *b
     uint8_t crc;
     uint8_t recv_data[2] = {0};
 
-    if (s_bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 2) != BQ76940_STATE_OK)
+    if (s_bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 2) != BQ76940_OK)
     {
-        LOG_E("Failed to read I2C data\r\n");
-
-        return BQ76940_STATE_ERR; // Return an invalid value to indicate failure
+        return BQ76940_READ_REG_ERR; // Return an invalid value to indicate failure
     }
     // CRC校验：先构造CRC输入数据（设备地址 + 读位 + 寄存器地址 + 读到的数据）
     crc_buf[0] = (BQ76940_DEVICE_ADDR << 1) | 0x01; // Read operation
     crc_buf[1] = recv_data[0];                      // Received data
     crc = s_bq76940_crc(crc_buf, 2);
 
-    // LOG_E("Received byte: 0x%02X, CRC from device: 0x%02X\r\n", recv_data[0], recv_data[1]);
+    // LOG("Received byte: 0x%02X, CRC from device: 0x%02X\r\n", recv_data[0], recv_data[1]);
 
     if (crc != recv_data[1])
     {
-        LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[1]);
+        // LOG("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[1]);
 
-        return BQ76940_STATE_ERR;
+        return BQ76940_CRC_ERR;
     }
 
     *byte = recv_data[0];
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -125,11 +121,9 @@ static bq76940_state_e s_bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16
     uint8_t crc = 0;
     uint8_t recv_data[4] = {0};
 
-    if (s_bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 4) != BQ76940_STATE_OK)
+    if (s_bq76940_interface_read_byte(BQ76940_DEVICE_ADDR, reg_addr, recv_data, 4) != BQ76940_OK)
     {
-        LOG_E("Failed to read I2C data\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* 第一个字节校验 构造CRC输入数据（设备地址 + 读位 + 读到的数据） */
@@ -140,19 +134,19 @@ static bq76940_state_e s_bq76940_read_halfword_with_CRC(uint8_t reg_addr, uint16
     /* 校验结构判断 */
     if (crc != recv_data[1])
     {
-        LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[1]);
+        return BQ76940_CRC_ERR;
     }
     /* 第二个字节校验 */
     crc_buf[0] = recv_data[2];
     crc = s_bq76940_crc(crc_buf, 1);
     if (crc != recv_data[3])
     {
-        LOG_E("CRC check failed! Expected: 0x%02X, Received: 0x%02X\r\n", crc, recv_data[3]);
+        return BQ76940_CRC_ERR;
     }
 
     *halfword = ((recv_data[0] << 8) | recv_data[2]);
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -201,10 +195,14 @@ bq76940_state_e bq76940_init(void)
     s_bq76940_interface_delay_ms(10);
 
     /* 4. 获取 gain和 offest 值 */
-    bq76940_get_calibration(&s_bq79640_compensation_struct.gain_uv, &s_bq79640_compensation_struct.offset_mv);
+    if (bq76940_get_calibration(&s_bq79640_compensation_struct.gain_uv, &s_bq79640_compensation_struct.offset_mv) != BQ76940_OK)
+    {
+        return BQ76940_ERR;
+    }
+
     s_bq79640_compensation_struct.inited = 1;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -218,21 +216,17 @@ bq76940_state_e bq76940_enter_ship(void)
     uint8_t shut_a = 0x08;
     uint8_t shut_b = 0x10;
 
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, shut_a) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, shut_a) != BQ76940_OK)
     {
-        LOG_E("Failed to enter ship! SHUT_A error\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, shut_b) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL1, shut_b) != BQ76940_OK)
     {
-        LOG_E("Failed to enter ship! SHUT_B error\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -253,11 +247,9 @@ bq76940_state_e bq76940_set_voltage_collection(bq76940_function_state_e state)
 {
     uint8_t reg_val = 0;
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &reg_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &reg_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set voltage collection\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
     if (state == BQ76940_FUNC_ENABLE)
@@ -281,11 +273,9 @@ bq76940_state_e bq76940_set_current_collection(bq76940_function_state_e state)
 {
     uint8_t reg_val = 0;
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_CC_CFG, &reg_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_CC_CFG, &reg_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set current collection\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     if (state == BQ76940_FUNC_ENABLE)
@@ -310,10 +300,9 @@ bq76940_state_e bq76940_set_temperature_collection(bq76940_temp_mode_e mode)
 {
     uint8_t reg_val = 0;
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &reg_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &reg_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set temperature collection\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
     if (mode == BQ76940_TEMP_MODE_EXTERNAL)
@@ -343,34 +332,28 @@ bq76940_state_e bq76940_get_calibration(uint16_t *adc_gain, int8_t *adc_offset)
 
     if (adc_gain == NULL || adc_offset == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCGAIN1, &gain_buf[0]) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCGAIN1, &gain_buf[0]) != BQ76940_OK)
     {
-        LOG_E("Failed to read ADC GAIN1\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCGAIN2, &gain_buf[1]) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCGAIN2, &gain_buf[1]) != BQ76940_OK)
     {
-        LOG_E("Failed to read ADC GAIN2\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCOFFSET, &offset) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_ADCOFFSET, &offset) != BQ76940_OK)
     {
-        LOG_E("Failed to read ADC OFFSET\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     *adc_gain = ((gain_buf[0] & 0x0C) << 1) | ((gain_buf[1] & 0xE0) >> 5) + 365;
     *adc_offset = (int8_t)offset;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -386,16 +369,12 @@ bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
 
     if (cell_index > 14 || voltage == NULL)
     {
-        LOG_E("Failed to get cell voltage:cell or voltage err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_VC1_HI + (cell_index * 2), &raw) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_VC1_HI + (cell_index * 2), &raw) != BQ76940_OK)
     {
-        LOG_E("Failed to get cell voltage: read VC1_HI err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* Vcell(mV) = ADC × Gain(μV) / 1000 + Offset(mV) */
@@ -403,7 +382,7 @@ bq76940_state_e bq76940_get_cell_voltage(uint16_t cell_index, uint16_t *voltage)
 
     *voltage = mv;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -420,18 +399,14 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_nu
 
     if (count == 0 || voltage == NULL)
     {
-        LOG_E("Failed to get all cell voltage: voltage or cell_num err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
     for (uint16_t i = 0; i < count; i++)
     {
-        if (s_bq76940_read_halfword_with_CRC((uint8_t)(BQ76940_VC1_HI + i * 2 + 1), &raw) != BQ76940_STATE_OK)
+        if (s_bq76940_read_halfword_with_CRC((uint8_t)(BQ76940_VC1_HI + i * 2 + 1), &raw) != BQ76940_OK)
         {
-            LOG_E("Failed to get cell voltage: read VC1_HI err\r\n");
-
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
 
         /* Vcell(mV) = ADC × Gain(μV) / 1000 + Offset(mV) */
@@ -440,7 +415,7 @@ bq76940_state_e bq76940_get_all_cell_voltage(uint16_t *voltage, uint16_t cell_nu
         voltage[i] = (uint16_t)mv;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -456,23 +431,19 @@ bq76940_state_e bq76940_get_battery_voltage(uint16_t *battery_voltage, uint16_t 
 
     if (battery_voltage == NULL || cell_num == 0)
     {
-        LOG_E("Failed to get battery voltage: null pointer\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_BAT_HI, &raw) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_BAT_HI, &raw) != BQ76940_OK)
     {
-        LOG_E("Failed to get battery voltage: read BAT_HI err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
     /* 计算公式 V(BAT) = 4 x GAIN x ADC(cell) + (#Cells x OFFSET) */
     mv = 4 * s_bq79640_compensation_struct.gain_uv * raw * 0.001f + (cell_num * s_bq79640_compensation_struct.offset_mv);
 
     *battery_voltage = (uint16_t)mv;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -488,7 +459,7 @@ bq76940_state_e bq76940_get_external_temperature_ch(uint8_t channel, int16_t *te
 
     if (temperature == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
     /* 通道选择 */
@@ -504,26 +475,23 @@ bq76940_state_e bq76940_get_external_temperature_ch(uint8_t channel, int16_t *te
         reg_addr = BQ76940_TS3_HI;
         break;
     default:
-        LOG_E("Failed to get external temperature: invalid channel %d\r\n", channel);
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
     /* 读取TEMP_SEL 判断是否启用外部温度模式 */
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_OK)
     {
-        LOG_E("Failed to get external temperature: read TEMP_SEL err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
-    /* 读取对应温度 */
-    if (sys_ctrl1 & BQ76940_TEMP_SEL_MASK)
+    /* 读取对应温度寄存器  */
+    if (sys_ctrl1 & BQ76940_TEMP_SEL_MASK) // 判断寄存器是否开启外部模式
     {
         uint16_t raw_adc_temp_val = 0;
 
-        if (s_bq76940_read_halfword_with_CRC(reg_addr, &raw_adc_temp_val) != BQ76940_STATE_OK)
+        if (s_bq76940_read_halfword_with_CRC(reg_addr, &raw_adc_temp_val) != BQ76940_OK)
         {
-            LOG_E("Failed to get external temperature: read TS%d err\r\n", channel);
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
 
         /* 14位ADC值: 寄存器低2位为状态位, 右移2位得到实际ADC值 */
@@ -542,11 +510,10 @@ bq76940_state_e bq76940_get_external_temperature_ch(uint8_t channel, int16_t *te
     }
     else
     {
-        LOG_E("Failed to get external temperature: TS%d TEMP_SEL bit err\r\n", channel);
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -566,41 +533,31 @@ bq76940_state_e bq76940_get_internal_temperature(int16_t *temperature)
     float temp_die = 0;
 
     /* 1. 判断功能是否启用 读取 TEMP_SEL 位判断是否为0 */
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_OK)
     {
-        LOG_E("Failed to get internal temperature: read SYS_CTRL1 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* TEMP_SEL = 1 外部温度模式, TEMP_SEL = 0 内部温度模式 */
     if (sys_ctrl1 & BQ76940_TEMP_SEL_MASK)
     {
-        LOG_E("Failed to get internal temperature: TEMP_SEL bit err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
     /* 2. 读取数据 读取寄存器 TS1 TS2 TS3 的数据 这些寄存器都是使用14位ADC采样 */
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_TS1_HI, &raw_adc_ts1) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_TS1_HI, &raw_adc_ts1) != BQ76940_OK)
     {
-        LOG_E("Failed to get internal temperature: read TS1 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_TS2_HI, &raw_adc_ts2) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_TS2_HI, &raw_adc_ts2) != BQ76940_OK)
     {
-        LOG_E("Failed to get internal temperature: read TS2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_TS3_HI, &raw_adc_ts3) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_TS3_HI, &raw_adc_ts3) != BQ76940_OK)
     {
-        LOG_E("Failed to get internal temperature: read TS3 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* 注意: 14位数据移位合成时保留全部16位数据 */
@@ -621,7 +578,7 @@ bq76940_state_e bq76940_get_internal_temperature(int16_t *temperature)
     // LOG("V_tsx: %0.1f\r\ntemp_die:%0.1f\r\n", V_tsx, temp_die);
     *temperature = (int16_t)(temp_die);
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -634,17 +591,16 @@ bq76940_state_e bq76940_get_current(int16_t *current)
     int16_t cc_adc_val = 0; // 库仑计数寄存器的原始ADC值
     float cc_val = 0;       // 转换后的库仑计数值
 
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_CC_HI, (uint16_t *)&cc_adc_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_CC_HI, (uint16_t *)&cc_adc_val) != BQ76940_OK)
     {
-        LOG_E("Failed to read current\r\n");
-        return BQ76940_STATE_ERR; // Return failure
+        return BQ76940_READ_REG_ERR; // Return failure
     }
 
     cc_val = cc_adc_val * 8.44f;      // 转换为库仑计数值，单位：uV
     *current = (int16_t)(cc_val / 4); // 转换为电流值，单位：mA（采样电阻为4mΩ）
     // LOG("Raw ADC value: %d, CC value: %.2f uV, Current: %d mA\r\n", cc_adc_val, cc_val, *current);
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -657,17 +613,16 @@ bq76940_state_e bq76940_get_current_raw(int16_t *cc_raw)
     int16_t cc_adc_val = 0; // 库仑计数寄存器的原始ADC值
     float cc_val = 0;       // 转换后的库仑计数值
 
-    if (s_bq76940_read_halfword_with_CRC(BQ76940_CC_HI, (uint16_t *)&cc_adc_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_halfword_with_CRC(BQ76940_CC_HI, (uint16_t *)&cc_adc_val) != BQ76940_OK)
     {
-        LOG_E("Failed to read current\r\n");
-        return BQ76940_STATE_ERR; // Return failure
+        return BQ76940_READ_REG_ERR; // Return failure
     }
 
     cc_val = cc_adc_val * 8.44f; // 转换为库仑计数值，单位：uV
 
     *cc_raw = (int16_t)cc_val;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -684,23 +639,20 @@ bq76940_state_e bq76940_set_ov_threshold(uint16_t ov, bq76940_ov_threshold_delay
     /* 1. 读取SYS_CTRL1 判断ADC是否启用(ADC_EN=1) */
     {
         uint8_t sys_ctrl1 = 0;
-        if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_STATE_OK)
+        if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_OK)
         {
-            LOG_E("Failed to set ov threshold: read SYS_CTRL1 err\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
         if (!(sys_ctrl1 & BQ76940_ADC_EN_MASK))
         {
-            LOG_E("Failed to set ov threshold: ADC not enabled\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
     }
 
     /* 2. 校验ADCGAIN和ADCOFFSET校准值是否已加载 */
     if (s_bq79640_compensation_struct.inited != 1)
     {
-        LOG_E("Failed to set ov threshold: calibration not loaded\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
     /* 3. 计算过压跳闸阈值
@@ -712,30 +664,27 @@ bq76940_state_e bq76940_set_ov_threshold(uint16_t ov, bq76940_ov_threshold_delay
     ov_trip = (ov_trip_full >> 4) & 0xFF;
 
     /* 5. 写入对应寄存器 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_OV_TRIP, ov_trip) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_OV_TRIP, ov_trip) != BQ76940_OK)
     {
-        LOG_E("Failed to set ov threshold: write OV_TRIP err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
     /* 6. 写入过压跳闸时间 */
     {
         uint8_t protect3_val = 0;
-        if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT3, &protect3_val) != BQ76940_STATE_OK)
+        if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT3, &protect3_val) != BQ76940_OK)
         {
-            LOG_E("Failed to set ov delay: read PROTECT3 err\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
         protect3_val &= ~BQ76940_OV_DELAY_MASK;
         protect3_val |= (delay << BQ76940_OV_DELAY_SHIFT);
-        if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT3, protect3_val) != BQ76940_STATE_OK)
+        if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT3, protect3_val) != BQ76940_OK)
         {
-            LOG_E("Failed to set ov delay: write PROTECT3 err\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_WRITE_REG_ERR;
         }
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -752,23 +701,20 @@ bq76940_state_e bq76940_set_uv_threshold(uint16_t uv, bq76940_uv_threshold_delay
     /* 1. 读取SYS_CTRL1 判断ADC是否启用(ADC_EN=1) */
     {
         uint8_t sys_ctrl1 = 0;
-        if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_STATE_OK)
+        if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL1, &sys_ctrl1) != BQ76940_OK)
         {
-            LOG_E("Failed to set uv threshold: read SYS_CTRL1 err\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
         if (!(sys_ctrl1 & BQ76940_ADC_EN_MASK))
         {
-            LOG_E("Failed to set uv threshold: ADC not enabled\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_ERR;
         }
     }
 
     /* 2. 校验ADCGAIN和ADCOFFSET校准值是否已加载 */
     if (s_bq79640_compensation_struct.inited != 1)
     {
-        LOG_E("Failed to set uv threshold: calibration not loaded\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
     /* 3. 计算欠压跳闸阈值
@@ -780,30 +726,27 @@ bq76940_state_e bq76940_set_uv_threshold(uint16_t uv, bq76940_uv_threshold_delay
     uv_trip = (uv_trip_full >> 4) & 0xFF;
 
     /* 5. 写入对应寄存器 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_UV_TRIP, uv_trip) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_UV_TRIP, uv_trip) != BQ76940_OK)
     {
-        LOG_E("Failed to set uv threshold: write UV_TRIP err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
     /* 6. 写入欠压跳闸延迟时间 */
     {
         uint8_t protect3_val = 0;
-        if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT3, &protect3_val) != BQ76940_STATE_OK)
+        if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT3, &protect3_val) != BQ76940_OK)
         {
-            LOG_E("Failed to set uv delay: read PROTECT3 err\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_READ_REG_ERR;
         }
         protect3_val &= ~BQ76940_UV_DELAY_MASK;
         protect3_val |= (delay << BQ76940_UV_DELAY_SHIFT);
-        if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT3, protect3_val) != BQ76940_STATE_OK)
+        if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT3, protect3_val) != BQ76940_OK)
         {
-            LOG_E("Failed to set uv delay: write PROTECT3 err\r\n");
-            return BQ76940_STATE_ERR;
+            return BQ76940_WRITE_REG_ERR;
         }
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -817,10 +760,9 @@ bq76940_state_e bq76940_set_ocd_scd_level(bq76940_ocd_scd_level_e level)
     uint8_t protect1_val = 0;
 
     /* 读取 PROTECT1 只修改bit7 (RSNS位) */
-    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT1, &protect1_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT1, &protect1_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set ocd scd level: read PROTECT1 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     if (level == BQ76940_OCD_SCD_HIGH_LEVEL)
@@ -834,13 +776,12 @@ bq76940_state_e bq76940_set_ocd_scd_level(bq76940_ocd_scd_level_e level)
         protect1_val &= ~0x80;
     }
 
-    if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT1, protect1_val) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT1, protect1_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set ocd scd level: write PROTECT1 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -853,23 +794,21 @@ bq76940_state_e bq76940_set_ocd_threshold(bq76940_ocd_threshold_value_e value, b
 {
     uint8_t protect2_val = 0;
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT2, &protect2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT2, &protect2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set ocd threshold: read PROTECT2 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* PROTECT2 [6:4] 过流延迟时间设置  [3:0] 过流阈值设置 */
     protect2_val &= ~(BQ76940_OCD_DELAY_MASK | BQ76940_OCD_THRESH_MASK);
     protect2_val |= (delay << BQ76940_OCD_DELAY_SHIFT) | (value << BQ76940_OCD_THRESH_SHIFT);
 
-    if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT2, protect2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT2, protect2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set ocd threshold: write PROTECT2 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -882,23 +821,21 @@ bq76940_state_e bq76940_set_scd_threshold(bq76940_scd_threshold_value_e value, b
 {
     uint8_t protect1_val = 0;
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT1, &protect1_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT1, &protect1_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set scd threshold: read PROTECT1 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* PROTECT1 [4:3] 延迟时间设置  [2:0] 短路阈值设置 */
     protect1_val &= ~(BQ76940_SCD_DELAY_MASK | BQ76940_SCD_THRESH_MASK);
     protect1_val |= (delay << BQ76940_SCD_DELAY_SHIFT) | (value << BQ76940_SCD_THRESH_SHIFT);
 
-    if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT1, protect1_val) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_PROTECT1, protect1_val) != BQ76940_OK)
     {
-        LOG_E("Failed to set scd threshold: write PROTECT1 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -913,13 +850,12 @@ bq76940_state_e bq76940_get_ov_threshold(uint16_t *ov)
 
     if (ov == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_OV_TRIP, &ov_trip) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_OV_TRIP, &ov_trip) != BQ76940_OK)
     {
-        LOG_E("Failed to get ov threshold: read OV_TRIP err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* Reconstruct 14-bit ADC: "10-OV_T<7:0>-1000" */
@@ -928,7 +864,7 @@ bq76940_state_e bq76940_get_ov_threshold(uint16_t *ov)
     /* Convert to mV */
     *ov = (uint16_t)(ov_trip_full * s_bq79640_compensation_struct.gain_uv * 0.001f + s_bq79640_compensation_struct.offset_mv + 0.5f);
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -943,13 +879,12 @@ bq76940_state_e bq76940_get_uv_threshold(uint16_t *uv)
 
     if (uv == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_UV_TRIP, &uv_trip) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_UV_TRIP, &uv_trip) != BQ76940_OK)
     {
-        LOG_E("Failed to get uv threshold: read UV_TRIP err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* Reconstruct 14-bit ADC: "01-UV_T<7:0>-0000" */
@@ -958,7 +893,7 @@ bq76940_state_e bq76940_get_uv_threshold(uint16_t *uv)
     /* Convert to mV */
     *uv = (uint16_t)(uv_trip_full * s_bq79640_compensation_struct.gain_uv * 0.001f + s_bq79640_compensation_struct.offset_mv + 0.5f + 1.0f);
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -972,19 +907,18 @@ bq76940_state_e bq76940_get_ocd_threshold(uint8_t *value)
 
     if (value == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT2, &protect2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT2, &protect2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to get ocd threshold: read PROTECT2 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* Extract OCD_THRESH [3:0] */
     *value = (protect2_val & BQ76940_OCD_THRESH_MASK) >> BQ76940_OCD_THRESH_SHIFT;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -998,19 +932,18 @@ bq76940_state_e bq76940_get_scd_threshold(uint8_t *value)
 
     if (value == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT1, &protect1_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_PROTECT1, &protect1_val) != BQ76940_OK)
     {
-        LOG_E("Failed to get scd threshold: read PROTECT1 err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* Extract SCD_THRESH [2:0] */
     *value = (protect1_val & BQ76940_SCD_THRESH_MASK) >> BQ76940_SCD_THRESH_SHIFT;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1024,19 +957,18 @@ bq76940_state_e bq76940_get_fault_status(uint8_t *fault_mask)
 
     if (fault_mask == NULL)
     {
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
     /* 读取 SYS_STAT 寄存器 */
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_STAT, &sys_stat_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_STAT, &sys_stat_val) != BQ76940_OK)
     {
-        LOG_E("Failed to get fault status: read SYS_STAT err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     *fault_mask = sys_stat_val;
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1047,13 +979,12 @@ bq76940_state_e bq76940_get_fault_status(uint8_t *fault_mask)
 bq76940_state_e bq76940_clear_fault(uint8_t mask)
 {
     /* SYS_STAT 位 写1清除 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_STAT, mask) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_STAT, mask) != BQ76940_OK)
     {
-        LOG_E("Failed to clear fault: write SYS_STAT err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1063,21 +994,17 @@ bq76940_state_e bq76940_clear_fault(uint8_t mask)
 bq76940_state_e bq76940_enable_charge(void)
 {
     uint8_t sys_ctrl2_val = 0;
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to enable charge: read SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
-    /* CHG_ON 置1 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val | BQ76940_CHG_ON) != BQ76940_STATE_OK)
+    /* CHG_ON 置1 启用充电 */
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val | BQ76940_CHG_ON) != BQ76940_OK)
     {
-        LOG_E("Failed to enable charge: write SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1087,21 +1014,17 @@ bq76940_state_e bq76940_enable_charge(void)
 bq76940_state_e bq76940_disable_charge(void)
 {
     uint8_t sys_ctrl2_val = 0;
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to disable charge: read SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
-    /* CHG_ON 清0 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val & ~BQ76940_CHG_ON) != BQ76940_STATE_OK)
+    /* CHG_ON 清0 禁用放电 */
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val & ~BQ76940_CHG_ON) != BQ76940_OK)
     {
-        LOG_E("Failed to disable charge: write SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1111,21 +1034,17 @@ bq76940_state_e bq76940_disable_charge(void)
 bq76940_state_e bq76940_enable_discharge(void)
 {
     uint8_t sys_ctrl2_val = 0;
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to enable discharge: read SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
     /* DSG_ON 置1 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val | BQ76940_DSG_ON) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val | BQ76940_DSG_ON) != BQ76940_OK)
     {
-        LOG_E("Failed to enable discharge: write SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1135,21 +1054,17 @@ bq76940_state_e bq76940_enable_discharge(void)
 bq76940_state_e bq76940_disable_discharge(void)
 {
     uint8_t sys_ctrl2_val = 0;
-    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(BQ76940_SYS_CTRL2, &sys_ctrl2_val) != BQ76940_OK)
     {
-        LOG_E("Failed to disable discharge: read SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
     /* DSG_ON 清0 */
-    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val & ~BQ76940_DSG_ON) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(BQ76940_SYS_CTRL2, sys_ctrl2_val & ~BQ76940_DSG_ON) != BQ76940_OK)
     {
-        LOG_E("Failed to disable discharge: write SYS_CTRL2 err\r\n");
-
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1167,17 +1082,15 @@ bq76940_state_e bq76940_start_balance(uint16_t cell_index)
     /* 1. 参数合法性检验 */
     if (cell_index < 1 || cell_index > 15)
     {
-        LOG_E("Failed to start balance: cell index err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
-    /* 2. 相邻电芯保护 不允许相邻两个电芯同时均衡: 读取全部 CELLBAL 寄存器, 构建 bitmap */
-    if (s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL1, &cellbal[0]) != BQ76940_STATE_OK ||
-        s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL2, &cellbal[1]) != BQ76940_STATE_OK ||
-        s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL3, &cellbal[2]) != BQ76940_STATE_OK)
+    /* 2. 读取全部 CELLBAL 寄存器, 构建 bitmap */
+    if (s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL1, &cellbal[0]) != BQ76940_OK ||
+        s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL2, &cellbal[1]) != BQ76940_OK ||
+        s_bq76940_read_byte_with_CRC(BQ76940_CELLBAL3, &cellbal[2]) != BQ76940_OK)
     {
-        LOG_E("Failed to start balance: read CELLBAL err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     /* 构建 15-bit bitmap: CELLBAL1[4:0]=电芯 5..1, CELLBAL2[4:0]=电芯 10..6, CELLBAL3[4:0]=电芯 15..11 */
@@ -1185,16 +1098,14 @@ bq76940_state_e bq76940_start_balance(uint16_t cell_index)
     bal_map |= (uint16_t)(cellbal[1] & 0x1F) << 5;  /* cells 6..10 */
     bal_map |= (uint16_t)(cellbal[2] & 0x1F) << 10; /* cells 11..15 */
 
-    /* 检查相邻两个电芯是否正在均衡 */
+    /* 相邻电芯保护 不允许相邻两个电芯同时均衡: 检查相邻两个电芯是否正在均衡 */
     if (cell_index > 1 && (bal_map & (1U << (cell_index - 2)))) /* 电芯 N-1 */
     {
-        LOG_E("Failed to start balance: adjacent cell %d already balancing\r\n", cell_index - 1);
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
     if (cell_index < 15 && (bal_map & (1U << (cell_index)))) /* 电芯 N+1 */
     {
-        LOG_E("Failed to start balance: adjacent cell %d already balancing\r\n", cell_index + 1);
-        return BQ76940_STATE_ERR;
+        return BQ76940_ERR;
     }
 
     /* 3. 计算目标电芯寄存器和位掩码 */
@@ -1218,13 +1129,12 @@ bq76940_state_e bq76940_start_balance(uint16_t cell_index)
 
     /* 4. 读-修改-写: 只设置目标电芯 */
     if (s_bq76940_write_byte_with_CRC(bal_reg_addr,
-                                      cellbal[bal_reg_addr - BQ76940_CELLBAL1]) != BQ76940_STATE_OK)
+                                      cellbal[bal_reg_addr - BQ76940_CELLBAL1]) != BQ76940_OK)
     {
-        LOG_E("Failed to start balance: write reg err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /**
@@ -1241,8 +1151,7 @@ bq76940_state_e bq76940_stop_balance(uint16_t cell_index)
     /* 1. 参数合法性检验 */
     if (cell_index < 1 || cell_index > 15)
     {
-        LOG_E("Failed to stop balance: cell index err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_PARAM_ERR;
     }
 
     /* 2. 计算目标电芯寄存器和位掩码 */
@@ -1263,22 +1172,20 @@ bq76940_state_e bq76940_stop_balance(uint16_t cell_index)
     }
 
     /* 3. 读-修改-写: 只设置目标电芯 */
-    if (s_bq76940_read_byte_with_CRC(bal_reg_addr, &bal_val) != BQ76940_STATE_OK)
+    if (s_bq76940_read_byte_with_CRC(bal_reg_addr, &bal_val) != BQ76940_OK)
     {
-        LOG_E("Failed to stop balance: read reg err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_READ_REG_ERR;
     }
 
     bal_val &= ~bal_bit_mask;
 
     /* 写回寄存器 */
-    if (s_bq76940_write_byte_with_CRC(bal_reg_addr, bal_val) != BQ76940_STATE_OK)
+    if (s_bq76940_write_byte_with_CRC(bal_reg_addr, bal_val) != BQ76940_OK)
     {
-        LOG_E("Failed to stop balance: write reg err\r\n");
-        return BQ76940_STATE_ERR;
+        return BQ76940_WRITE_REG_ERR;
     }
 
-    return BQ76940_STATE_OK;
+    return BQ76940_OK;
 }
 
 /* ================================ BQ76940 测试函数 ================================ */
@@ -1287,52 +1194,201 @@ bq76940_state_e bq76940_stop_balance(uint16_t cell_index)
  * @description: 测试函数 负责测试static函数
  * @return {*}
  */
-void bq76940_static_test(void)
-{
-    LOG("\r\n========== BQ76940 Register R/W Test ==========\r\n\r\n");
+// void bq76940_static_test(void)
+// {
+//     LOG("\r\n========== BQ76940 Register R/W Test ==========\r\n\r\n");
+//     /* Test 1: 读 SYS_STAT (0x00) 验证基本读 */
+//     {
+//         uint8_t val = 0xFF;
+//         bq76940_state_e ret = s_bq76940_read_byte_with_CRC(0x00, &val);
+//         LOG("  [READ] SYS_STAT(0x00) = 0x%02X  %s\r\n",
+//             val, ret == BQ76940_OK ? "OK" : "ERR");
+//     }
+//     /* Test 2: SYS_CTRL1 (0x04) 写读回环 */
+//     {
+//         uint8_t orig = 0, rback = 0;
+//         bq76940_state_e ret;
+//         ret = s_bq76940_read_byte_with_CRC(0x04, &orig);
+//         LOG("  [READ] SYS_CTRL1(0x04) orig = 0x%02X  %s\r\n",
+//             orig, ret == BQ76940_OK ? "OK" : "ERR");
+//         uint8_t test = orig ^ 0x01;
+//         ret = s_bq76940_write_byte_with_CRC(0x04, test);
+//         LOG("  [WRITE] SYS_CTRL1(0x04) <- 0x%02X  %s\r\n",
+//             test, ret == BQ76940_OK ? "OK" : "ERR");
+//         ret = s_bq76940_read_byte_with_CRC(0x04, &rback);
+//         LOG("  [READ] SYS_CTRL1(0x04) rback = 0x%02X  %s\r\n",
+//             rback, ret == BQ76940_OK ? "OK" : "ERR");
+//         if (rback == test)
+//             LOG("  [PASS] round-trip matched\r\n");
+//         else
+//             LOG("  [FAIL] wrote 0x%02X got 0x%02X\r\n", test, rback);
+//         s_bq76940_write_byte_with_CRC(0x04, orig);
+//         LOG("  [RESTORE] SYS_CTRL1(0x04) <- 0x%02X\r\n", orig);
+//     }
+//     /* Test 3: 读半字 CC_CFG (0x0B) */
+//     {
+//         uint16_t val = 0;
+//         bq76940_state_e ret = s_bq76940_read_halfword_with_CRC(0x0B, &val);
+//         LOG("  [READ] CC_CFG(0x0B) = 0x%04X  %s\r\n",
+//             val, ret == BQ76940_OK ? "OK" : "ERR");
+//     }
+//     LOG("\r\n========== Test Complete ==========\r\n\r\n");
+// }
 
-    /* Test 1: 读 SYS_STAT (0x00) 验证基本读 */
-    {
-        uint8_t val = 0xFF;
-        bq76940_state_e ret = s_bq76940_read_byte_with_CRC(0x00, &val);
-        LOG("  [READ] SYS_STAT(0x00) = 0x%02X  %s\r\n",
-            val, ret == BQ76940_STATE_OK ? "OK" : "ERR");
-    }
-
-    /* Test 2: SYS_CTRL1 (0x04) 写读回环 */
-    {
-        uint8_t orig = 0, rback = 0;
-        bq76940_state_e ret;
-
-        ret = s_bq76940_read_byte_with_CRC(0x04, &orig);
-        LOG("  [READ] SYS_CTRL1(0x04) orig = 0x%02X  %s\r\n",
-            orig, ret == BQ76940_STATE_OK ? "OK" : "ERR");
-
-        uint8_t test = orig ^ 0x01;
-        ret = s_bq76940_write_byte_with_CRC(0x04, test);
-        LOG("  [WRITE] SYS_CTRL1(0x04) <- 0x%02X  %s\r\n",
-            test, ret == BQ76940_STATE_OK ? "OK" : "ERR");
-
-        ret = s_bq76940_read_byte_with_CRC(0x04, &rback);
-        LOG("  [READ] SYS_CTRL1(0x04) rback = 0x%02X  %s\r\n",
-            rback, ret == BQ76940_STATE_OK ? "OK" : "ERR");
-
-        if (rback == test)
-            LOG("  [PASS] round-trip matched\r\n");
-        else
-            LOG("  [FAIL] wrote 0x%02X got 0x%02X\r\n", test, rback);
-
-        s_bq76940_write_byte_with_CRC(0x04, orig);
-        LOG("  [RESTORE] SYS_CTRL1(0x04) <- 0x%02X\r\n", orig);
-    }
-
-    /* Test 3: 读半字 CC_CFG (0x0B) */
-    {
-        uint16_t val = 0;
-        bq76940_state_e ret = s_bq76940_read_halfword_with_CRC(0x0B, &val);
-        LOG("  [READ] CC_CFG(0x0B) = 0x%04X  %s\r\n",
-            val, ret == BQ76940_STATE_OK ? "OK" : "ERR");
-    }
-
-    LOG("\r\n========== Test Complete ==========\r\n\r\n");
-}
+/**
+ * @description: 测试函数 负责测试bq76940函数
+ * @return {*}
+ */
+// void drv_bq76940_test(void)
+// {
+//     if (bq76940_init() != BQ76940_OK)
+//     {
+//         bsp_uart1_printf("bq76940 init failed\r\n");
+//     }
+//     bsp_uart1_printf("bq76940 init done\r\n");
+//     /* 内部函数测试 */
+//     // bq76940_static_test();
+//     const uint16_t cell_number = 9;
+//     uint16_t battery_voltage = 0;
+//     uint16_t cells_voltage[cell_number];
+//     uint16_t gain = 0;
+//     int8_t offset = 0;
+//     int16_t ex_temp = 0;
+//     int16_t in_temp = 0;
+//     printf("\r\n========== BQ76940 Function Test ==========\r\n\r\n");
+//     if (bq76940_wake_up() == BQ76940_OK)
+//     {
+//         printf("BQ76940 wake up success\r\n");
+//     }
+//     HAL_Delay(1000);
+//     if (bq76940_get_calibration(&gain, &offset) == BQ76940_OK)
+//     {
+//         printf("Q76940 get calibration success\r\n");
+//     }
+//     printf("gain %d offset: %d \r\n", gain, offset);
+//     printf("\r\n");
+//     if (bq76940_set_voltage_collection(BQ76940_FUNC_ENABLE) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set voltage collection success\r\n");
+//     }
+//     if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_EXTERNAL) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set temperature collection success\r\n");
+//     }
+//     if (bq76940_set_current_collection(BQ76940_FUNC_ENABLE) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set current collection success\r\n");
+//     }
+//     printf("\r\n");
+//     if (bq76940_get_battery_voltage(&battery_voltage, cell_number) == BQ76940_OK)
+//     {
+//         printf("BQ76940 get battery voltage success\r\n");
+//     }
+//     bq76940_get_cell_voltage(0, &cells_voltage[0]);
+//     bq76940_get_cell_voltage(1, &cells_voltage[1]);
+//     bq76940_get_cell_voltage(4, &cells_voltage[2]);
+//     bq76940_get_cell_voltage(5, &cells_voltage[3]);
+//     bq76940_get_cell_voltage(6, &cells_voltage[4]);
+//     bq76940_get_cell_voltage(9, &cells_voltage[5]);
+//     bq76940_get_cell_voltage(10, &cells_voltage[6]);
+//     bq76940_get_cell_voltage(11, &cells_voltage[7]);
+//     bq76940_get_cell_voltage(14, &cells_voltage[8]);
+//     printf("Battery voltage: %d.%03d V\r\n", battery_voltage / 1000, battery_voltage % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 1, cells_voltage[0] / 1000, cells_voltage[0] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 2, cells_voltage[1] / 1000, cells_voltage[1] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 3, cells_voltage[2] / 1000, cells_voltage[2] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 4, cells_voltage[3] / 1000, cells_voltage[3] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 5, cells_voltage[4] / 1000, cells_voltage[4] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 6, cells_voltage[5] / 1000, cells_voltage[5] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 7, cells_voltage[6] / 1000, cells_voltage[6] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 8, cells_voltage[7] / 1000, cells_voltage[7] % 1000);
+//     printf("cell %d voltage: %d.%03d V\r\n", 9, cells_voltage[8] / 1000, cells_voltage[8] % 1000);
+//     printf("\r\n");
+//     if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_EXTERNAL) == BQ76940_OK)
+//     {
+//         printf("temperature EXTERNAL mode switch success\r\n");
+//         HAL_Delay(2000);
+//     }
+//     for (uint8_t i = 0; i < 5; i++)
+//     {
+//         HAL_Delay(250);
+//         bq76940_get_external_temperature_ch(1, &ex_temp);
+//         printf("external temmperature: %.1f C \r\n", ex_temp * 0.1f);
+//     }
+//     printf("\r\n");
+//     if (bq76940_set_temperature_collection(BQ76940_TEMP_MODE_INTERNAL) == BQ76940_OK)
+//     {
+//         printf("temperature INTERNAL mode switch success\r\n");
+//         HAL_Delay(2000);
+//     }
+//     for (uint8_t i = 0; i < 5; i++)
+//     {
+//         HAL_Delay(250);
+//         bq76940_get_internal_temperature(&in_temp);
+//         printf("internal temmperature: %.1f C \r\n", in_temp * 0.1f);
+//     }
+//     printf("\r\n");
+//     int16_t cc_val = 0;
+//     int16_t cc_raw_val = 0;
+//     bq76940_get_current(&cc_val);
+//     printf("battery current: %0.3fA\r\n", cc_val * 0.001f); // 单位换算 A
+//     bq76940_get_current_raw(&cc_raw_val);
+//     printf("battery CC val: %d\r\n", cc_raw_val); // 输出原始值 uV
+//     printf("\r\n");
+//     /* 设置过压 欠压值 */
+//     /* 过压延迟: 4s 过压电压: 4200mV */
+//     if (bq76940_set_ov_threshold(4200, BQ76940_OV_DELAY_4S) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set ov threshold success\r\n");
+//     }
+//     /* 欠压延迟: 4s 欠压电压: 3100mV */
+//     if (bq76940_set_uv_threshold(3100, BQ76940_UV_DELAY_4S) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set uv threshold success\r\n");
+//     }
+//     /* 获取过压 欠压值 */
+//     uint16_t ov_threshold = 0;
+//     uint16_t uv_threshold = 0;
+//     bq76940_get_ov_threshold(&ov_threshold);
+//     bq76940_get_uv_threshold(&uv_threshold);
+//     printf("ov threshold:%d mV\t uv threshold:%d mV\r\n", ov_threshold, uv_threshold);
+//     printf("\r\n");
+//     /* 设置过流 短路电流值 */
+//     /* 低等级 */
+//     if (bq76940_set_ocd_scd_level(BQ76940_OCD_SCD_LOW_LEVEL) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set ocd scd level success\r\n");
+//     }
+//     /* 放电过流延迟：320ms, 过流电压：11mV 换算过流电流: 11mV/4mΩ = 2.75A */
+//     if (bq76940_set_ocd_threshold(BQ76940_OCD_VALUE_11MV, BQ76940_OCD_DELAY_320MS) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set ocd threshold success\r\n");
+//     }
+//     /* 放电短路延迟：400us, 短路电压：22mV 换算短路电流: 22mV/4mΩ = 5.5A */
+//     if (bq76940_set_scd_threshold(BQ76940_SCD_VALUE_22MV, BQ76940_SCD_DELAY_400US) == BQ76940_OK)
+//     {
+//         printf("BQ76940 set scd threshold success\r\n");
+//     }
+//     /* 获取过流 短路电流值 */
+//     uint8_t ocd_threshold = 0x00;
+//     uint8_t scd_threshold = 0x00;
+//     bq76940_get_ocd_threshold(&ocd_threshold);
+//     bq76940_get_scd_threshold(&scd_threshold);
+//     printf("ocd threshold:0x%x \t scd threshold:0x%x \r\n", ocd_threshold, scd_threshold);
+//     printf("\r\n");
+//     /* 获取错误状态 */
+//     uint8_t fault_code = 0x00;
+//     bq76940_get_fault_status(&fault_code);
+//     printf("fault status code: 0x%x\r\n", fault_code);
+//     printf("\r\n");
+//     /* 电芯均衡 */
+//     if (bq76940_start_balance(1) == BQ76940_OK)
+//     {
+//         printf("start balance\r\n");
+//     }
+//     HAL_Delay(1000);
+//     if (bq76940_stop_balance(1) == BQ76940_OK)
+//     {
+//         printf("stop balance\r\n");
+//     }
+// }

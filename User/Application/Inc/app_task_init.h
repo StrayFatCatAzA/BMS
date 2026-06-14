@@ -3,7 +3,7 @@
 
 
 
-
+void app_task_init(void);
 
 
 
